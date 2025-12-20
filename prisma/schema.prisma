@@ -9,86 +9,146 @@ datasource db {
 }
 
 model User {
-  id            String    @id @default(cuid())
-  email         String    @unique
+  id            String    @id @default(dbgenerated("(uuid_generate_v4())::text"))
   name          String?
+  email         String    @unique
+  emailVerified DateTime?
   image         String?
   role          String    @default("STUDENT")
   classId       String?
-  class         Class?    @relation(fields: [classId], references: [id])
   createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  updatedAt     DateTime  @default(now()) @updatedAt
+  Account       Account[]
+  Session       Session[]
+  class         Class?    @relation(fields: [classId], references: [id])
 
   @@index([email])
   @@index([classId])
 }
 
 model AuthorizedEmail {
-  id        String   @id @default(cuid())
+  id        String   @id @default(dbgenerated("(uuid_generate_v4())::text"))
   email     String   @unique
   role      String   @default("STUDENT")
   classId   String?
-  class     Class?   @relation(fields: [classId], references: [id])
   createdAt DateTime @default(now())
+  class     Class?   @relation(fields: [classId], references: [id], onDelete: SetNull)
 
-  @@index([email])
+  @@index([classId])
 }
 
 model Class {
-  id                String            @id @default(cuid())
-  name              String            @unique
-  displayOrder      Int               @unique
-  subjects          Subject[]
-  users             User[]
-  authorizedEmails  AuthorizedEmail[]
-  createdAt         DateTime          @default(now())
-  updatedAt         DateTime          @updatedAt
+  id           String    @id @default(dbgenerated("(uuid_generate_v4())::text"))
+  name         String    @unique
+  displayOrder Int       @default(0)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @default(now()) @updatedAt
+  subjects     Subject[]
+  users        User[]
+  authorizedEmails AuthorizedEmail[]
 
   @@index([displayOrder])
 }
 
 model Subject {
-  id          String    @id @default(cuid())
-  name        String
-  classId     String
-  class       Class     @relation(fields: [classId], references: [id], onDelete: Cascade)
-  chapters    Chapter[]
-  resources   Resource[]
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  id        String     @id @default(dbgenerated("(uuid_generate_v4())::text"))
+  name      String
+  classId   String
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @default(now()) @updatedAt
+  chapters  Chapter[]
+  resources Resource[]
+  class     Class      @relation(fields: [classId], references: [id], onDelete: Cascade)
 
   @@unique([classId, name])
   @@index([classId])
 }
 
 model Chapter {
-  id          String     @id @default(cuid())
-  name        String
-  subjectId   String
-  subject     Subject    @relation(fields: [subjectId], references: [id], onDelete: Cascade)
-  resources   Resource[]
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
+  id        String     @id @default(dbgenerated("(uuid_generate_v4())::text"))
+  name      String
+  subjectId String
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @default(now()) @updatedAt
+  subject   Subject    @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  resources Resource[]
 
   @@unique([subjectId, name])
   @@index([subjectId])
 }
 
 model Resource {
-  id          String   @id @default(cuid())
+  id          String   @id @default(dbgenerated("(uuid_generate_v4())::text"))
   title       String
   type        String
   description String?
   link        String
   chapterId   String?
-  chapter     Chapter?  @relation(fields: [chapterId], references: [id], onDelete: Cascade)
   subjectId   String?
-  subject     Subject? @relation(fields: [subjectId], references: [id], onDelete: Cascade)
   createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  updatedAt   DateTime @default(now()) @updatedAt
+  chapter     Chapter? @relation(fields: [chapterId], references: [id], onDelete: Cascade)
+  subject     Subject? @relation(fields: [subjectId], references: [id], onDelete: Cascade)
 
   @@index([chapterId])
   @@index([subjectId])
   @@index([type])
 }
 
+model Account {
+  id                String  @id @default(dbgenerated("(uuid_generate_v4())::text"))
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+  User              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+}
+
+model Session {
+  id           String   @id @default(dbgenerated("(uuid_generate_v4())::text"))
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  User         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model VerificationToken {
+  identifier String
+  token      String
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+model bucket_list_items {
+  id           Int           @id @default(autoincrement())
+  description  String        @db.VarChar(500)
+  added_by     String        @db.VarChar(100)
+  is_completed Boolean?      @default(false)
+  created_at   DateTime?     @default(now()) @db.Timestamp(6)
+  completed_at DateTime?     @db.Timestamp(6)
+  is_hidden    Boolean?      @default(false)
+  item_photos  item_photos[]
+}
+
+model item_photos {
+  id                Int               @id @default(autoincrement())
+  item_id           Int
+  photo_path        String            @db.VarChar(500)
+  uploaded_at       DateTime?         @default(now()) @db.Timestamp(6)
+  bucket_list_items bucket_list_items @relation(fields: [item_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([item_id], map: "idx_item_photos_item_id")
+}
