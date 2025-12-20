@@ -1,0 +1,93 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  name          String?
+  image         String?
+  role          String    @default("STUDENT")
+  classId       String?
+  class         Class?    @relation(fields: [classId], references: [id])
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([email])
+  @@index([classId])
+}
+
+model AuthorizedEmail {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  role      String   @default("STUDENT")
+  classId   String?
+  class     Class?   @relation(fields: [classId], references: [id])
+  createdAt DateTime @default(now())
+
+  @@index([email])
+}
+
+model Class {
+  id                String            @id @default(cuid())
+  name              String            @unique
+  displayOrder      Int               @unique
+  subjects          Subject[]
+  users             User[]
+  authorizedEmails  AuthorizedEmail[]
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+
+  @@index([displayOrder])
+}
+
+model Subject {
+  id          String    @id @default(cuid())
+  name        String
+  classId     String
+  class       Class     @relation(fields: [classId], references: [id], onDelete: Cascade)
+  chapters    Chapter[]
+  resources   Resource[]
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@unique([classId, name])
+  @@index([classId])
+}
+
+model Chapter {
+  id          String     @id @default(cuid())
+  name        String
+  subjectId   String
+  subject     Subject    @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  resources   Resource[]
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  @@unique([subjectId, name])
+  @@index([subjectId])
+}
+
+model Resource {
+  id          String   @id @default(cuid())
+  title       String
+  type        String
+  description String?
+  link        String
+  chapterId   String?
+  chapter     Chapter?  @relation(fields: [chapterId], references: [id], onDelete: Cascade)
+  subjectId   String?
+  subject     Subject? @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([chapterId])
+  @@index([subjectId])
+  @@index([type])
+}
+
