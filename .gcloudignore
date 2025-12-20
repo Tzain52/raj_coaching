@@ -1,0 +1,13 @@
+.git
+.gitignore
+node_modules
+.next
+.env*.local
+*.log
+README.md
+.dockerignore
+Dockerfile.backup
+scripts/
+SUPABASE_SETUP.md
+CLOUD_RUN_DEPLOYMENT.md
+cloudbuild.yaml
