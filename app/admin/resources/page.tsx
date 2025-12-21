@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { ArrowLeft, Plus, ExternalLink, Trash2 } from "lucide-react";
+import { ArrowLeft, Plus, ExternalLink, Trash2, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { useToast } from "@/components/ui/use-toast";
 
@@ -61,6 +61,8 @@ export default function ResourcesPage() {
     chapterId: "",
   });
   const { toast } = useToast();
+  const [formSubmitting, setFormSubmitting] = useState(false);
+  const [deleteLoadingId, setDeleteLoadingId] = useState<string | null>(null);
 
   useEffect(() => {
     fetchData();
@@ -103,7 +105,9 @@ export default function ResourcesPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (formSubmitting) return;
     try {
+      setFormSubmitting(true);
       const res = await fetch("/api/admin/resources", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -121,6 +125,8 @@ export default function ResourcesPage() {
       }
     } catch (error) {
       toast({ title: "Error", description: "Failed to add resource", variant: "destructive" });
+    } finally {
+      setFormSubmitting(false);
     }
   };
 
@@ -128,6 +134,7 @@ export default function ResourcesPage() {
     if (!confirm("Are you sure you want to delete this resource?")) return;
 
     try {
+      setDeleteLoadingId(id);
       const res = await fetch(`/api/admin/resources/${id}`, { method: "DELETE" });
       if (res.ok) {
         toast({ title: "Success", description: "Resource deleted successfully" });
@@ -137,6 +144,8 @@ export default function ResourcesPage() {
       }
     } catch (error) {
       toast({ title: "Error", description: "Failed to delete resource", variant: "destructive" });
+    } finally {
+      setDeleteLoadingId(null);
     }
   };
 
@@ -276,7 +285,8 @@ export default function ResourcesPage() {
                     </Select>
                   </div>
                 )}
-                <Button type="submit" className="w-full" disabled={!formData.chapterId}>
+                <Button type="submit" className="w-full" disabled={!formData.chapterId || formSubmitting}>
+                  {formSubmitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
                   Add Resource
                 </Button>
               </form>
@@ -322,8 +332,17 @@ export default function ResourcesPage() {
                         Open Link
                       </Button>
                     </a>
-                    <Button variant="destructive" size="sm" onClick={() => handleDelete(resource.id)}>
-                      <Trash2 className="h-4 w-4" />
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={() => handleDelete(resource.id)}
+                      disabled={deleteLoadingId === resource.id}
+                    >
+                      {deleteLoadingId === resource.id ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Trash2 className="h-4 w-4" />
+                      )}
                     </Button>
                   </div>
                 </CardContent>

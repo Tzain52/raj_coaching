@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { ArrowLeft, Plus, Pencil, Trash2, FileText } from "lucide-react";
+import { ArrowLeft, Plus, Pencil, Trash2, FileText, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { useToast } from "@/components/ui/use-toast";
 
@@ -39,6 +39,8 @@ export default function ChaptersPage() {
   const [editingChapter, setEditingChapter] = useState<Chapter | null>(null);
   const [formData, setFormData] = useState({ name: "" });
   const { toast } = useToast();
+  const [formSubmitting, setFormSubmitting] = useState(false);
+  const [deleteLoadingId, setDeleteLoadingId] = useState<string | null>(null);
 
   useEffect(() => {
     fetchData();
@@ -77,7 +79,9 @@ export default function ChaptersPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (formSubmitting) return;
     try {
+      setFormSubmitting(true);
       const url = editingChapter ? `/api/admin/chapters/${editingChapter.id}` : "/api/admin/chapters";
       const method = editingChapter ? "PATCH" : "POST";
 
@@ -102,6 +106,8 @@ export default function ChaptersPage() {
       }
     } catch (error) {
       toast({ title: "Error", description: "Failed to save chapter", variant: "destructive" });
+    } finally {
+      setFormSubmitting(false);
     }
   };
 
@@ -109,6 +115,7 @@ export default function ChaptersPage() {
     if (!confirm("Are you sure you want to delete this chapter? All resources will be deleted.")) return;
 
     try {
+      setDeleteLoadingId(id);
       const res = await fetch(`/api/admin/chapters/${id}`, { method: "DELETE" });
       if (res.ok) {
         toast({ title: "Success", description: "Chapter deleted successfully" });
@@ -118,6 +125,8 @@ export default function ChaptersPage() {
       }
     } catch (error) {
       toast({ title: "Error", description: "Failed to delete chapter", variant: "destructive" });
+    } finally {
+      setDeleteLoadingId(null);
     }
   };
 
@@ -197,7 +206,8 @@ export default function ChaptersPage() {
                     required
                   />
                 </div>
-                <Button type="submit" className="w-full">
+                <Button type="submit" className="w-full" disabled={formSubmitting}>
+                  {formSubmitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
                   {editingChapter ? "Update Chapter" : "Create Chapter"}
                 </Button>
               </form>
@@ -229,8 +239,18 @@ export default function ChaptersPage() {
                       <Pencil className="h-4 w-4 mr-2" />
                       Edit
                     </Button>
-                    <Button variant="destructive" size="sm" onClick={() => handleDelete(chapter.id)} className="flex-1">
-                      <Trash2 className="h-4 w-4 mr-2" />
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={() => handleDelete(chapter.id)}
+                      className="flex-1"
+                      disabled={deleteLoadingId === chapter.id}
+                    >
+                      {deleteLoadingId === chapter.id ? (
+                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                      ) : (
+                        <Trash2 className="h-4 w-4 mr-2" />
+                      )}
                       Delete
                     </Button>
                   </div>

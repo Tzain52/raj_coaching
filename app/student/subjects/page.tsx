@@ -1,62 +1,73 @@
-"use client";
-
-import { useState, useEffect } from "react";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowLeft, BookOpen, FileText } from "lucide-react";
+import { ArrowLeft, BookOpen } from "lucide-react";
 import Link from "next/link";
-import { useToast } from "@/components/ui/use-toast";
 
-interface Subject {
-  id: string;
-  name: string;
-  _count?: {
-    chapters: number;
-  };
-}
+export default async function SubjectsPage() {
+  const session = await getServerSession(authOptions);
 
-interface ClassData {
-  id: string;
-  name: string;
-  subjects: Subject[];
-}
-
-export default function SubjectsPage() {
-  const [classData, setClassData] = useState<ClassData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const { toast } = useToast();
-
-  useEffect(() => {
-    fetchClassData();
-  }, []);
-
-  const fetchClassData = async () => {
-    try {
-      const res = await fetch("/api/student/classes");
-      if (res.ok) {
-        const data = await res.json();
-        setClassData(data);
-      } else {
-        toast({ title: "Error", description: "Failed to fetch subjects", variant: "destructive" });
-      }
-    } catch (error) {
-      toast({ title: "Error", description: "Failed to fetch subjects", variant: "destructive" });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  if (loading) {
-    return <div className="flex items-center justify-center min-h-screen">Loading...</div>;
+  if (!session || session.user.role !== "STUDENT") {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 px-4">
+        <Card className="max-w-md w-full">
+          <CardHeader>
+            <CardTitle>Not Authorized</CardTitle>
+            <CardDescription>Sign in as a student to view your subjects.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Link href="/auth/signin">
+              <Button className="w-full">Go to Sign In</Button>
+            </Link>
+          </CardContent>
+        </Card>
+      </div>
+    );
   }
+
+  if (!session.user.classId) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 px-4">
+        <Card className="max-w-md w-full">
+          <CardHeader>
+            <CardTitle>No Class Assigned</CardTitle>
+            <CardDescription>Please contact the administrator to assign you to a class.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form action="/api/auth/signout" method="POST">
+              <Button variant="outline" className="w-full" type="submit">
+                Sign Out
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  const classData = await prisma.class.findUnique({
+    where: { id: session.user.classId },
+    include: {
+      subjects: {
+        orderBy: { name: "asc" },
+        include: {
+          _count: {
+            select: { chapters: true },
+          },
+        },
+      },
+    },
+  });
 
   if (!classData) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <Card className="max-w-md">
           <CardHeader>
-            <CardTitle>No Class Assigned</CardTitle>
-            <CardDescription>Please contact the administrator to assign you to a class.</CardDescription>
+            <CardTitle>No Class Found</CardTitle>
+            <CardDescription>Please contact the administrator for assistance.</CardDescription>
           </CardHeader>
         </Card>
       </div>

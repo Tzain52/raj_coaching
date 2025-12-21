@@ -8,9 +8,10 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { ArrowLeft, UserCog, Users } from "lucide-react";
+import { ArrowLeft, UserCog, Users, Filter, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { useToast } from "@/components/ui/use-toast";
+import { LoadingScreen } from "@/components/ui/loading-screen";
 
 interface User {
   id: string;
@@ -20,12 +21,32 @@ interface User {
   classId: string | null;
   class: { id: string; name: string } | null;
   createdAt: string;
+  installment1Paid: boolean;
+  installment2Paid: boolean;
 }
 
 interface Class {
   id: string;
   name: string;
 }
+
+type InstallmentChoice = "paid" | "unpaid";
+
+interface NewStudentForm {
+  name: string;
+  email: string;
+  classId: string;
+  installment1Paid: InstallmentChoice;
+  installment2Paid: InstallmentChoice;
+}
+
+const NEW_STUDENT_DEFAULT: NewStudentForm = {
+  name: "",
+  email: "",
+  classId: "none",
+  installment1Paid: "unpaid",
+  installment2Paid: "unpaid",
+};
 
 export default function StudentsPage() {
   const [students, setStudents] = useState<User[]>([]);
@@ -35,23 +56,62 @@ export default function StudentsPage() {
   const [isBulkDialogOpen, setIsBulkDialogOpen] = useState(false);
   const [bulkClassId, setBulkClassId] = useState("");
   const [isAddStudentDialogOpen, setIsAddStudentDialogOpen] = useState(false);
-  const [newStudent, setNewStudent] = useState({ email: "", classId: "" });
+  const [newStudent, setNewStudent] = useState<NewStudentForm>({ ...NEW_STUDENT_DEFAULT });
   const [isClassDialogOpen, setIsClassDialogOpen] = useState(false);
   const [newClass, setNewClass] = useState({ name: "", displayOrder: "" });
+  const [filters, setFilters] = useState({
+    classId: "all",
+    installment1: "all",
+    installment2: "all",
+  });
+  const [stats, setStats] = useState({
+    total: 0,
+    installment1Paid: 0,
+    installment2Paid: 0,
+  });
   const { toast } = useToast();
+  const [assigningClassId, setAssigningClassId] = useState<string | null>(null);
+  const [bulkAssignLoading, setBulkAssignLoading] = useState(false);
+  const [addStudentLoading, setAddStudentLoading] = useState(false);
+  const [createClassLoading, setCreateClassLoading] = useState(false);
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [filters.classId, filters.installment1, filters.installment2]);
 
   const fetchData = async () => {
     try {
+      const query = new URLSearchParams();
+
+      if (filters.classId !== "all") {
+        query.set("classId", filters.classId);
+      }
+
+      if (filters.installment1 !== "all") {
+        query.set("installment1", filters.installment1);
+      }
+
+      if (filters.installment2 !== "all") {
+        query.set("installment2", filters.installment2);
+      }
+
+      const studentsUrl = `/api/admin/students${query.toString() ? `?${query.toString()}` : ""}`;
+
       const [studentsRes, classesRes] = await Promise.all([
-        fetch("/api/admin/students"),
+        fetch(studentsUrl),
         fetch("/api/admin/classes"),
       ]);
       
-      if (studentsRes.ok) setStudents(await studentsRes.json());
+      if (studentsRes.ok) {
+        const data = await studentsRes.json();
+        setStudents(data);
+        setStats({
+          total: data.length,
+          installment1Paid: data.filter((s: User) => s.installment1Paid).length,
+          installment2Paid: data.filter((s: User) => s.installment2Paid).length,
+        });
+      }
+
       if (classesRes.ok) setClasses(await classesRes.json());
     } catch (error) {
       toast({ title: "Error", description: "Failed to fetch data", variant: "destructive" });
@@ -61,6 +121,8 @@ export default function StudentsPage() {
   };
 
   const handleClassChange = async (studentId: string, classId: string | null) => {
+    if (assigningClassId) return;
+    setAssigningClassId(studentId);
     try {
       const res = await fetch(`/api/admin/students/${studentId}/assign-class`, {
         method: "PATCH",
@@ -76,16 +138,20 @@ export default function StudentsPage() {
       }
     } catch (error) {
       toast({ title: "Error", description: "Failed to assign class", variant: "destructive" });
+    } finally {
+      setAssigningClassId(null);
     }
   };
 
   const handleBulkAssign = async () => {
+    if (bulkAssignLoading) return;
     if (selectedStudents.size === 0) {
       toast({ title: "Error", description: "Please select at least one student", variant: "destructive" });
       return;
     }
 
     try {
+      setBulkAssignLoading(true);
       const res = await fetch("/api/admin/students/bulk-assign", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -106,6 +172,8 @@ export default function StudentsPage() {
       }
     } catch (error) {
       toast({ title: "Error", description: "Failed to bulk assign", variant: "destructive" });
+    } finally {
+      setBulkAssignLoading(false);
     }
   };
 
@@ -129,28 +197,34 @@ export default function StudentsPage() {
 
   const handleAddStudent = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (addStudentLoading) return;
     try {
-      const res = await fetch("/api/admin/emails", {
+      setAddStudentLoading(true);
+      const payload = {
+        name: newStudent.name.trim(),
+        email: newStudent.email.trim(),
+        classId: newStudent.classId === "none" ? null : newStudent.classId,
+        installment1Paid: newStudent.installment1Paid === "paid",
+        installment2Paid: newStudent.installment2Paid === "paid",
+      };
+
+      const res = await fetch("/api/admin/students", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email: newStudent.email,
-          role: "STUDENT",
-          classId: newStudent.classId || null,
-        }),
+        body: JSON.stringify(payload),
       });
 
       if (!res.ok) {
-        const error = await res.json();
-        throw new Error(error.error || "Failed to add student");
+        const error = await res.json().catch(() => null);
+        throw new Error(error?.error || "Failed to add student");
       }
 
       toast({
         title: "Student added",
-        description: "Email authorized. Share the Cloud Run link so the student can sign in.",
+        description: "Student can now access the portal with Google sign-in.",
       });
       setIsAddStudentDialogOpen(false);
-      setNewStudent({ email: "", classId: "" });
+      setNewStudent({ ...NEW_STUDENT_DEFAULT });
       fetchData();
     } catch (error) {
       toast({
@@ -158,12 +232,16 @@ export default function StudentsPage() {
         description: error instanceof Error ? error.message : "Failed to add student",
         variant: "destructive",
       });
+    } finally {
+      setAddStudentLoading(false);
     }
   };
 
   const handleCreateClass = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (createClassLoading) return;
     try {
+      setCreateClassLoading(true);
       const payload = {
         name: newClass.name,
         displayOrder: newClass.displayOrder
@@ -192,11 +270,28 @@ export default function StudentsPage() {
         description: error instanceof Error ? error.message : "Failed to create class",
         variant: "destructive",
       });
+    } finally {
+      setCreateClassLoading(false);
     }
   };
 
+  const statusBadge = (paid: boolean, label: string) => (
+    <span
+      className={`px-2 py-0.5 text-xs rounded-full ${
+        paid ? "bg-green-100 text-green-700" : "bg-yellow-100 text-yellow-700"
+      }`}
+    >
+      {label}: {paid ? "Yes" : "No"}
+    </span>
+  );
+
   if (loading) {
-    return <div className="flex items-center justify-center min-h-screen">Loading...</div>;
+    return (
+      <LoadingScreen
+        label="Loading students"
+        description="Fetching the latest enrollment data..."
+      />
+    );
   }
 
   return (
@@ -256,7 +351,8 @@ export default function StudentsPage() {
                       placeholder={`${classes.length + 1}`}
                     />
                   </div>
-                  <Button type="submit" className="w-full">
+                  <Button type="submit" className="w-full" disabled={createClassLoading}>
+                    {createClassLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
                     Save Class
                   </Button>
                 </form>
@@ -265,20 +361,26 @@ export default function StudentsPage() {
 
             <Dialog open={isAddStudentDialogOpen} onOpenChange={setIsAddStudentDialogOpen}>
               <DialogTrigger asChild>
-                <Button>
-                  Invite Student
-                </Button>
+                <Button>Add Student</Button>
               </DialogTrigger>
               <DialogContent>
                 <DialogHeader>
-                  <DialogTitle>Add Student Email</DialogTitle>
-                  <DialogDescription>
-                    Authorized students can sign in with Google using this email address.
-                  </DialogDescription>
+                  <DialogTitle>New Student</DialogTitle>
+                  <DialogDescription>Create a student profile with class and fee status.</DialogDescription>
                 </DialogHeader>
                 <form className="space-y-4" onSubmit={handleAddStudent}>
                   <div>
-                    <Label htmlFor="studentEmail">Student Email</Label>
+                    <Label htmlFor="studentName">Full Name</Label>
+                    <Input
+                      id="studentName"
+                      placeholder="e.g. Riya Sharma"
+                      value={newStudent.name}
+                      onChange={(e) => setNewStudent((prev) => ({ ...prev, name: e.target.value }))}
+                      required
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="studentEmail">Email</Label>
                     <Input
                       id="studentEmail"
                       type="email"
@@ -289,7 +391,7 @@ export default function StudentsPage() {
                     />
                   </div>
                   <div>
-                    <Label htmlFor="studentClass">Assign to Class (optional)</Label>
+                    <Label htmlFor="studentClass">Assign to Class</Label>
                     <Select
                       value={newStudent.classId}
                       onValueChange={(value) => setNewStudent((prev) => ({ ...prev, classId: value }))}
@@ -298,7 +400,7 @@ export default function StudentsPage() {
                         <SelectValue placeholder="Select a class" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">No class yet</SelectItem>
+                        <SelectItem value="none">No class yet</SelectItem>
                         {classes.map((cls) => (
                           <SelectItem key={cls.id} value={cls.id}>
                             {cls.name}
@@ -307,8 +409,45 @@ export default function StudentsPage() {
                       </SelectContent>
                     </Select>
                   </div>
-                  <Button type="submit" className="w-full">
-                    Authorize Student
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <Label>Installment 1 Status</Label>
+                      <Select
+                        value={newStudent.installment1Paid}
+                        onValueChange={(value: InstallmentChoice) =>
+                          setNewStudent((prev) => ({ ...prev, installment1Paid: value }))
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select status" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="unpaid">Unpaid</SelectItem>
+                          <SelectItem value="paid">Paid</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label>Installment 2 Status</Label>
+                      <Select
+                        value={newStudent.installment2Paid}
+                        onValueChange={(value: InstallmentChoice) =>
+                          setNewStudent((prev) => ({ ...prev, installment2Paid: value }))
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select status" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="unpaid">Unpaid</SelectItem>
+                          <SelectItem value="paid">Paid</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  <Button type="submit" className="w-full" disabled={addStudentLoading}>
+                    {addStudentLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                    Save Student
                   </Button>
                 </form>
               </DialogContent>
@@ -357,7 +496,8 @@ export default function StudentsPage() {
                       </Select>
                     </div>
                     <div className="flex gap-2">
-                      <Button onClick={handleBulkAssign} className="flex-1">
+                      <Button onClick={handleBulkAssign} className="flex-1" disabled={bulkAssignLoading}>
+                        {bulkAssignLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
                         Assign Class
                       </Button>
                       <Button variant="outline" onClick={() => setSelectedStudents(new Set())} className="flex-1">
@@ -390,6 +530,7 @@ export default function StudentsPage() {
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Role</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Assigned Class</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fee Status</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Joined</th>
                   </tr>
                 </thead>
@@ -440,6 +581,16 @@ export default function StudentsPage() {
                                 ))}
                               </SelectContent>
                             </Select>
+                          ) : (
+                            <span className="text-sm text-gray-400">N/A</span>
+                          )}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          {student.role === "STUDENT" ? (
+                            <div className="flex flex-col gap-1">
+                              {statusBadge(student.installment1Paid, "Installment 1")}
+                              {statusBadge(student.installment2Paid, "Installment 2")}
+                            </div>
                           ) : (
                             <span className="text-sm text-gray-400">N/A</span>
                           )}

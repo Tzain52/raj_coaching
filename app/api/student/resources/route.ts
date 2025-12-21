@@ -6,8 +6,8 @@ import { prisma } from "@/lib/prisma";
 export async function GET(request: Request) {
   try {
     const session = await getServerSession(authOptions);
-    
-    if (!session) {
+
+    if (!session || session.user.role !== "STUDENT" || !session.user.classId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -16,6 +16,14 @@ export async function GET(request: Request) {
     const chapterId = searchParams.get("chapterId");
 
     if (chapterId) {
+      const chapter = await prisma.chapter.findFirst({
+        where: { id: chapterId, subject: { classId: session.user.classId } },
+      });
+
+      if (!chapter) {
+        return NextResponse.json({ error: "Chapter not found" }, { status: 404 });
+      }
+
       const resources = await prisma.resource.findMany({
         where: { chapterId },
         orderBy: { createdAt: "desc" },
@@ -24,6 +32,14 @@ export async function GET(request: Request) {
     }
 
     if (subjectId) {
+      const subject = await prisma.subject.findFirst({
+        where: { id: subjectId, classId: session.user.classId },
+      });
+
+      if (!subject) {
+        return NextResponse.json({ error: "Subject not found" }, { status: 404 });
+      }
+
       const chapters = await prisma.chapter.findMany({
         where: { subjectId },
         include: {

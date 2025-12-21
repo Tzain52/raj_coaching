@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { ArrowLeft, Plus, Pencil, Trash2, BookOpen } from "lucide-react";
+import { ArrowLeft, Plus, Pencil, Trash2, BookOpen, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { useToast } from "@/components/ui/use-toast";
 
@@ -35,6 +35,8 @@ export default function SubjectsPage() {
   const [formData, setFormData] = useState({ name: "" });
   const router = useRouter();
   const { toast } = useToast();
+  const [formSubmitting, setFormSubmitting] = useState(false);
+  const [deleteLoadingId, setDeleteLoadingId] = useState<string | null>(null);
 
   useEffect(() => {
     fetchData();
@@ -66,7 +68,9 @@ export default function SubjectsPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (formSubmitting) return;
     try {
+      setFormSubmitting(true);
       const url = editingSubject ? `/api/admin/subjects/${editingSubject.id}` : "/api/admin/subjects";
       const method = editingSubject ? "PATCH" : "POST";
 
@@ -91,6 +95,8 @@ export default function SubjectsPage() {
       }
     } catch (error) {
       toast({ title: "Error", description: "Failed to save subject", variant: "destructive" });
+    } finally {
+      setFormSubmitting(false);
     }
   };
 
@@ -98,6 +104,7 @@ export default function SubjectsPage() {
     if (!confirm("Are you sure you want to delete this subject? All chapters and resources will be deleted.")) return;
 
     try {
+      setDeleteLoadingId(id);
       const res = await fetch(`/api/admin/subjects/${id}`, { method: "DELETE" });
       if (res.ok) {
         toast({ title: "Success", description: "Subject deleted successfully" });
@@ -107,6 +114,8 @@ export default function SubjectsPage() {
       }
     } catch (error) {
       toast({ title: "Error", description: "Failed to delete subject", variant: "destructive" });
+    } finally {
+      setDeleteLoadingId(null);
     }
   };
 
@@ -173,7 +182,8 @@ export default function SubjectsPage() {
                     required
                   />
                 </div>
-                <Button type="submit" className="w-full">
+                <Button type="submit" className="w-full" disabled={formSubmitting}>
+                  {formSubmitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
                   {editingSubject ? "Update Subject" : "Create Subject"}
                 </Button>
               </form>
@@ -205,8 +215,18 @@ export default function SubjectsPage() {
                       <Pencil className="h-4 w-4 mr-2" />
                       Edit
                     </Button>
-                    <Button variant="destructive" size="sm" onClick={() => handleDelete(subject.id)} className="flex-1">
-                      <Trash2 className="h-4 w-4 mr-2" />
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={() => handleDelete(subject.id)}
+                      className="flex-1"
+                      disabled={deleteLoadingId === subject.id}
+                    >
+                      {deleteLoadingId === subject.id ? (
+                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                      ) : (
+                        <Trash2 className="h-4 w-4 mr-2" />
+                      )}
                       Delete
                     </Button>
                   </div>

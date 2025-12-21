@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { ArrowLeft, Plus, Pencil, Trash2 } from "lucide-react";
+import { ArrowLeft, Plus, Pencil, Trash2, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { useToast } from "@/components/ui/use-toast";
 
@@ -29,6 +29,8 @@ export default function ClassesPage() {
   const [formData, setFormData] = useState({ name: "", displayOrder: "" });
   const router = useRouter();
   const { toast } = useToast();
+  const [formSubmitting, setFormSubmitting] = useState(false);
+  const [deleteLoadingId, setDeleteLoadingId] = useState<string | null>(null);
 
   useEffect(() => {
     fetchClasses();
@@ -50,7 +52,9 @@ export default function ClassesPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (formSubmitting) return;
     try {
+      setFormSubmitting(true);
       const url = editingClass ? `/api/admin/classes/${editingClass.id}` : "/api/admin/classes";
       const method = editingClass ? "PATCH" : "POST";
       
@@ -75,6 +79,8 @@ export default function ClassesPage() {
       }
     } catch (error) {
       toast({ title: "Error", description: "Failed to save class", variant: "destructive" });
+    } finally {
+      setFormSubmitting(false);
     }
   };
 
@@ -82,6 +88,7 @@ export default function ClassesPage() {
     if (!confirm("Are you sure you want to delete this class?")) return;
 
     try {
+      setDeleteLoadingId(id);
       const res = await fetch(`/api/admin/classes/${id}`, { method: "DELETE" });
       if (res.ok) {
         toast({ title: "Success", description: "Class deleted successfully" });
@@ -91,6 +98,8 @@ export default function ClassesPage() {
       }
     } catch (error) {
       toast({ title: "Error", description: "Failed to delete class", variant: "destructive" });
+    } finally {
+      setDeleteLoadingId(null);
     }
   };
 
@@ -168,7 +177,8 @@ export default function ClassesPage() {
                     required
                   />
                 </div>
-                <Button type="submit" className="w-full">
+                <Button type="submit" className="w-full" disabled={formSubmitting}>
+                  {formSubmitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
                   {editingClass ? "Update Class" : "Create Class"}
                 </Button>
               </form>
@@ -213,8 +223,18 @@ export default function ClassesPage() {
                       <Pencil className="h-4 w-4 mr-2" />
                       Edit
                     </Button>
-                    <Button variant="destructive" size="sm" onClick={() => handleDelete(cls.id)} className="flex-1">
-                      <Trash2 className="h-4 w-4 mr-2" />
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={() => handleDelete(cls.id)}
+                      className="flex-1"
+                      disabled={deleteLoadingId === cls.id}
+                    >
+                      {deleteLoadingId === cls.id ? (
+                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                      ) : (
+                        <Trash2 className="h-4 w-4 mr-2" />
+                      )}
                       Delete
                     </Button>
                   </div>

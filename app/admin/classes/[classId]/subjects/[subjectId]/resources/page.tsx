@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { ArrowLeft, Plus, ExternalLink, Trash2, Pencil, FileText } from "lucide-react";
+import { ArrowLeft, Plus, ExternalLink, Trash2, Pencil, FileText, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { useToast } from "@/components/ui/use-toast";
 
@@ -47,6 +47,8 @@ export default function SubjectResourcesPage() {
     link: "",
   });
   const { toast } = useToast();
+  const [formSubmitting, setFormSubmitting] = useState(false);
+  const [deleteLoadingId, setDeleteLoadingId] = useState<string | null>(null);
 
   useEffect(() => {
     fetchData();
@@ -85,7 +87,9 @@ export default function SubjectResourcesPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (formSubmitting) return;
     try {
+      setFormSubmitting(true);
       const url = editingResource ? `/api/admin/resources/${editingResource.id}` : "/api/admin/resources";
       const method = editingResource ? "PATCH" : "POST";
 
@@ -110,6 +114,8 @@ export default function SubjectResourcesPage() {
       }
     } catch (error) {
       toast({ title: "Error", description: "Failed to save resource", variant: "destructive" });
+    } finally {
+      setFormSubmitting(false);
     }
   };
 
@@ -117,6 +123,7 @@ export default function SubjectResourcesPage() {
     if (!confirm("Are you sure you want to delete this resource?")) return;
 
     try {
+      setDeleteLoadingId(id);
       const res = await fetch(`/api/admin/resources/${id}`, { method: "DELETE" });
       if (res.ok) {
         toast({ title: "Success", description: "Resource deleted successfully" });
@@ -126,6 +133,8 @@ export default function SubjectResourcesPage() {
       }
     } catch (error) {
       toast({ title: "Error", description: "Failed to delete resource", variant: "destructive" });
+    } finally {
+      setDeleteLoadingId(null);
     }
   };
 
@@ -248,7 +257,8 @@ export default function SubjectResourcesPage() {
                     onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                   />
                 </div>
-                <Button type="submit" className="w-full">
+                <Button type="submit" className="w-full" disabled={formSubmitting}>
+                  {formSubmitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
                   {editingResource ? "Update Resource" : "Add Resource"}
                 </Button>
               </form>
@@ -299,8 +309,17 @@ export default function SubjectResourcesPage() {
                     <Button variant="outline" size="sm" onClick={() => openEditDialog(resource)}>
                       <Pencil className="h-4 w-4" />
                     </Button>
-                    <Button variant="destructive" size="sm" onClick={() => handleDelete(resource.id)}>
-                      <Trash2 className="h-4 w-4" />
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={() => handleDelete(resource.id)}
+                      disabled={deleteLoadingId === resource.id}
+                    >
+                      {deleteLoadingId === resource.id ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Trash2 className="h-4 w-4" />
+                      )}
                     </Button>
                   </div>
                 </CardContent>

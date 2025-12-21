@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { ArrowLeft, FileText, ExternalLink } from "lucide-react";
 import Link from "next/link";
 import { useToast } from "@/components/ui/use-toast";
+import { LoadingScreen } from "@/components/ui/loading-screen";
 
 interface Resource {
   id: string;
@@ -60,7 +61,12 @@ export default function SubjectPage() {
   };
 
   if (loading) {
-    return <div className="flex items-center justify-center min-h-screen">Loading...</div>;
+    return (
+      <LoadingScreen
+        label="Loading subject resources"
+        description="Pulling chapters and study materials..."
+      />
+    );
   }
 
   if (!subject) {

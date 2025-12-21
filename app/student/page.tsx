@@ -37,86 +37,68 @@ export default async function StudentDashboard() {
     );
   }
 
-  const classData = await prisma.class.findUnique({
-    where: { id: session.user.classId },
-    include: {
-      subjects: {
-        include: {
-          _count: {
-            select: { chapters: true },
+  const [classData] = await Promise.all([
+    prisma.class.findUnique({
+      where: { id: session.user.classId },
+      include: {
+        subjects: {
+          include: {
+            _count: {
+              select: { chapters: true },
+            },
           },
+          orderBy: { name: "asc" },
         },
-        orderBy: { name: "asc" },
       },
-    },
-  });
+    }),
+  ]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 flex flex-col">
       <header className="bg-white shadow-md border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="flex justify-between items-center">
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div className="flex items-center gap-3">
               <div className="p-2 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-lg">
                 <GraduationCap className="h-8 w-8 text-white" />
               </div>
               <div>
-                <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
-                  Raj Coaching Center
-                </h1>
-                <p className="text-sm text-gray-600">Student Learning Portal</p>
+                <h1 className="text-2xl font-bold text-gray-900">Raj Coaching Center</h1>
+                <p className="text-sm text-gray-500">Student Portal</p>
               </div>
             </div>
-            <div className="flex items-center gap-4">
-              <div className="text-right hidden sm:block">
-                <p className="text-sm font-semibold text-gray-900">{session.user.name}</p>
-                <p className="text-xs text-gray-500">Class {classData?.name}</p>
-              </div>
+            <nav className="flex flex-wrap items-center gap-4 text-sm font-medium text-gray-600">
+              <a href="#subjects-section" className="hover:text-blue-600 transition-colors">
+                Notes
+              </a>
+              <Link href="/student/fees" className="hover:text-blue-600 transition-colors">
+                Fees
+              </Link>
               <form action="/api/auth/signout" method="POST">
                 <Button variant="outline" size="sm" type="submit">
                   <LogOut className="h-4 w-4 mr-2" />
                   Sign Out
                 </Button>
               </form>
-            </div>
-          </div>
-        </div>
-        
-        <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
-            <div className="flex flex-wrap items-center justify-center gap-6 text-sm">
-              <div className="flex items-center gap-2">
-                <Mail className="h-4 w-4" />
-                <span>raj.edu5253@gmail.com</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <MapPin className="h-4 w-4" />
-                <span>RCCC, Biaora</span>
-              </div>
-            </div>
+            </nav>
           </div>
         </div>
       </header>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="mb-8">
-          <h2 className="text-3xl font-bold text-gray-900 mb-2">
-            Welcome back, {session.user.name?.split(" ")[0] || "Student"}! 👋
+        <section className="mb-10 rounded-2xl bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 text-white px-6 py-10 shadow-xl">
+          <p className="text-sm uppercase tracking-widest text-blue-100 mb-2">RCCC Portal</p>
+          <h2 className="text-4xl md:text-5xl font-bold mb-4">
+            Welcome, {session.user.name?.split(" ")[0] || "Student"}!
           </h2>
-          <p className="text-gray-600 text-lg">
-            You're enrolled in <span className="font-semibold text-blue-600">Class {classData?.name}</span>
+          <p className="text-lg text-blue-100">
+            You're currently enrolled in <span className="font-semibold">Class {classData?.name}</span>. Access all your learning resources and stay on top of your progress from this dashboard.
           </p>
-        </div>
+        </section>
 
-        <div className="mb-6 flex justify-between items-center">
+        <section id="subjects-section" className="mb-6 flex justify-between items-center">
           <h3 className="text-2xl font-bold text-gray-900">Your Subjects</h3>
-          <Link href="/student/homework">
-            <Button variant="outline">
-              <FileText className="h-4 w-4 mr-2" />
-              View All Homework & Tests
-            </Button>
-          </Link>
-        </div>
+        </section>
 
         {!classData || classData.subjects.length === 0 ? (
           <Card className="shadow-lg">

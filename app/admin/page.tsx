@@ -40,7 +40,7 @@ export default async function AdminDashboard() {
       </header>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
           <Link href="/admin/classes">
             <Card className="hover:shadow-lg transition-shadow cursor-pointer h-full">
               <CardHeader>
@@ -78,6 +78,27 @@ export default async function AdminDashboard() {
               <CardContent>
                 <p className="text-sm text-gray-600">
                   See all registered students and their class assignments
+                </p>
+              </CardContent>
+            </Card>
+          </Link>
+
+          <Link href="/admin/fees">
+            <Card className="hover:shadow-lg transition-shadow cursor-pointer h-full">
+              <CardHeader>
+                <div className="flex items-center gap-3">
+                  <div className="p-3 bg-green-100 rounded-lg">
+                    <FileText className="h-6 w-6 text-green-600" />
+                  </div>
+                  <div>
+                    <CardTitle>Fee Requests</CardTitle>
+                    <CardDescription>Approve or reject installment submissions</CardDescription>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-gray-600">
+                  Review pending fee confirmations and update installment status
                 </p>
               </CardContent>
             </Card>

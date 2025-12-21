@@ -16,14 +16,43 @@ model User {
   image         String?
   role          String    @default("STUDENT")
   classId       String?
+  installment1Paid Boolean @default(false)
+  installment2Paid Boolean @default(false)
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @default(now()) @updatedAt
   Account       Account[]
   Session       Session[]
   class         Class?    @relation(fields: [classId], references: [id])
+  feeRequests   FeeRequest[]
 
   @@index([email])
   @@index([classId])
+}
+
+model FeeRequest {
+  id          String             @id @default(dbgenerated("(uuid_generate_v4())::text"))
+  studentId   String
+  installment FeeInstallment
+  status      FeeRequestStatus   @default(PENDING)
+  adminNote   String?
+  requestedAt DateTime           @default(now())
+  resolvedAt  DateTime?
+  student     User               @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@index([studentId])
+  @@index([installment])
+  @@index([status])
+}
+
+enum FeeInstallment {
+  INSTALLMENT1
+  INSTALLMENT2
+}
+
+enum FeeRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
 }
 
 model AuthorizedEmail {
