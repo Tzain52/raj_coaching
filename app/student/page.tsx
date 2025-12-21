@@ -55,28 +55,28 @@ export default async function StudentDashboard() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 flex flex-col">
-      <header className="bg-white shadow-md border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      <header className="bg-white shadow-md border-b border-gray-200 sticky top-0 z-20">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div className="flex items-center gap-3">
               <div className="p-2 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-lg">
-                <GraduationCap className="h-8 w-8 text-white" />
+                <GraduationCap className="h-7 w-7 text-white" />
               </div>
               <div>
-                <h1 className="text-2xl font-bold text-gray-900">Raj Coaching Center</h1>
-                <p className="text-sm text-gray-500">Student Portal</p>
+                <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Raj Coaching Center</h1>
+                <p className="text-xs sm:text-sm text-gray-500">Student Portal</p>
               </div>
             </div>
-            <nav className="flex flex-wrap items-center gap-4 text-sm font-medium text-gray-600">
-              <a href="#subjects-section" className="hover:text-blue-600 transition-colors">
+            <nav className="flex flex-wrap items-center gap-3 text-sm font-medium text-gray-600">
+              <a href="#subjects-section" className="hover:text-blue-600 transition">
                 Notes
               </a>
-              <Link href="/student/fees" className="hover:text-blue-600 transition-colors">
+              <Link href="/student/fees" className="hover:text-blue-600 transition">
                 Fees
               </Link>
-              <form action="/api/auth/signout" method="POST">
-                <Button variant="outline" size="sm" type="submit">
-                  <LogOut className="h-4 w-4 mr-2" />
+              <form action="/api/auth/signout" method="POST" className="w-full sm:w-auto">
+                <Button variant="outline" size="sm" type="submit" className="w-full sm:w-auto">
+                  <LogOut className="h-4 w-4 mr-1.5" />
                   Sign Out
                 </Button>
               </form>
@@ -85,19 +85,20 @@ export default async function StudentDashboard() {
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <section className="mb-10 rounded-2xl bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 text-white px-6 py-10 shadow-xl">
-          <p className="text-sm uppercase tracking-widest text-blue-100 mb-2">RCCC Portal</p>
-          <h2 className="text-4xl md:text-5xl font-bold mb-4">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-8">
+        <section className="rounded-2xl bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 text-white px-6 py-8 sm:py-10 shadow-xl">
+          <p className="text-xs sm:text-sm uppercase tracking-widest text-blue-100 mb-2">RCCC Portal</p>
+          <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold mb-3">
             Welcome, {session.user.name?.split(" ")[0] || "Student"}!
           </h2>
-          <p className="text-lg text-blue-100">
+          <p className="text-base sm:text-lg text-blue-100 leading-relaxed">
             You're currently enrolled in <span className="font-semibold">Class {classData?.name}</span>. Access all your learning resources and stay on top of your progress from this dashboard.
           </p>
         </section>
 
-        <section id="subjects-section" className="mb-6 flex justify-between items-center">
-          <h3 className="text-2xl font-bold text-gray-900">Your Subjects</h3>
+        <section id="subjects-section" className="flex flex-col gap-2 sm:flex-row sm:justify-between sm:items-center">
+          <h3 className="text-xl sm:text-2xl font-bold text-gray-900">Your Subjects</h3>
+          <p className="text-sm text-gray-500 hidden sm:block">Tap a subject to see chapters & resources</p>
         </section>
 
         {!classData || classData.subjects.length === 0 ? (
@@ -109,18 +110,18 @@ export default async function StudentDashboard() {
             </CardContent>
           </Card>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
             {classData.subjects.map((subject: any) => (
               <Link key={subject.id} href={`/student/subjects/${subject.id}`}>
-                <Card className="hover:shadow-xl transition-all duration-300 cursor-pointer h-full border-2 border-transparent hover:border-blue-200 group">
-                  <CardHeader className="pb-4">
+                <Card className="hover:shadow-xl transition-all duration-300 cursor-pointer h-full border border-transparent hover:border-blue-200 group">
+                  <CardHeader className="pb-3 sm:pb-4">
                     <div className="flex items-start justify-between">
                       <div className="flex items-center gap-3">
                         <div className="p-3 bg-gradient-to-br from-blue-100 to-indigo-100 rounded-xl group-hover:from-blue-200 group-hover:to-indigo-200 transition-colors">
                           <BookOpen className="h-6 w-6 text-blue-600" />
                         </div>
                         <div>
-                          <CardTitle className="text-xl group-hover:text-blue-600 transition-colors">
+                          <CardTitle className="text-lg sm:text-xl group-hover:text-blue-600 transition-colors">
                             {subject.name}
                           </CardTitle>
                           <CardDescription className="mt-1">
@@ -131,7 +132,7 @@ export default async function StudentDashboard() {
                     </div>
                   </CardHeader>
                   <CardContent>
-                    <Button variant="ghost" className="w-full group-hover:bg-blue-50 group-hover:text-blue-600 transition-colors">
+                    <Button variant="ghost" className="w-full text-sm sm:text-base group-hover:bg-blue-50 group-hover:text-blue-600 transition-colors">
                       View Chapters & Resources →
                     </Button>
                   </CardContent>
@@ -144,14 +145,14 @@ export default async function StudentDashboard() {
       </main>
 
       <footer className="mt-auto bg-gray-900 text-gray-300">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div>
               <div className="flex items-center gap-2 mb-4">
                 <div className="p-2 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-lg">
                   <GraduationCap className="h-6 w-6 text-white" />
                 </div>
-                <h3 className="text-xl font-bold text-white">Raj Coaching Center</h3>
+                <h3 className="text-lg sm:text-xl font-bold text-white">Raj Coaching Center</h3>
               </div>
               <p className="text-sm text-gray-400">
                 Empowering students with quality education and comprehensive study materials for classes 9th to 12th.
