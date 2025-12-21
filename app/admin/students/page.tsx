@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 import { ArrowLeft, UserCog, Users } from "lucide-react";
 import Link from "next/link";
 import { useToast } from "@/components/ui/use-toast";
@@ -33,6 +34,10 @@ export default function StudentsPage() {
   const [selectedStudents, setSelectedStudents] = useState<Set<string>>(new Set());
   const [isBulkDialogOpen, setIsBulkDialogOpen] = useState(false);
   const [bulkClassId, setBulkClassId] = useState("");
+  const [isAddStudentDialogOpen, setIsAddStudentDialogOpen] = useState(false);
+  const [newStudent, setNewStudent] = useState({ email: "", classId: "" });
+  const [isClassDialogOpen, setIsClassDialogOpen] = useState(false);
+  const [newClass, setNewClass] = useState({ name: "", displayOrder: "" });
   const { toast } = useToast();
 
   useEffect(() => {
@@ -122,6 +127,74 @@ export default function StudentsPage() {
     }
   };
 
+  const handleAddStudent = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      const res = await fetch("/api/admin/emails", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: newStudent.email,
+          role: "STUDENT",
+          classId: newStudent.classId || null,
+        }),
+      });
+
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.error || "Failed to add student");
+      }
+
+      toast({
+        title: "Student added",
+        description: "Email authorized. Share the Cloud Run link so the student can sign in.",
+      });
+      setIsAddStudentDialogOpen(false);
+      setNewStudent({ email: "", classId: "" });
+      fetchData();
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to add student",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleCreateClass = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      const payload = {
+        name: newClass.name,
+        displayOrder: newClass.displayOrder
+          ? Number(newClass.displayOrder)
+          : classes.length + 1,
+      };
+
+      const res = await fetch("/api/admin/classes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.error || "Failed to create class");
+      }
+
+      toast({ title: "Class created", description: `${payload.name} is ready for assignments.` });
+      setIsClassDialogOpen(false);
+      setNewClass({ name: "", displayOrder: "" });
+      fetchData();
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to create class",
+        variant: "destructive",
+      });
+    }
+  };
+
   if (loading) {
     return <div className="flex items-center justify-center min-h-screen">Loading...</div>;
   }
@@ -146,6 +219,103 @@ export default function StudentsPage() {
       </header>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="flex flex-wrap gap-3 justify-between items-center mb-6">
+          <div>
+            <h2 className="text-xl font-semibold text-gray-900">Manage enrollment</h2>
+            <p className="text-sm text-gray-600">Invite students and organize classes in one place.</p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Dialog open={isClassDialogOpen} onOpenChange={setIsClassDialogOpen}>
+              <DialogTrigger asChild>
+                <Button variant="outline">Create Class</Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>New Class</DialogTitle>
+                  <DialogDescription>Classes created here are available immediately for assignments.</DialogDescription>
+                </DialogHeader>
+                <form className="space-y-4" onSubmit={handleCreateClass}>
+                  <div>
+                    <Label htmlFor="className">Class Name</Label>
+                    <Input
+                      id="className"
+                      value={newClass.name}
+                      onChange={(e) => setNewClass((prev) => ({ ...prev, name: e.target.value }))}
+                      placeholder="e.g. Class 10 - Science"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="displayOrder">Display Order (optional)</Label>
+                    <Input
+                      id="displayOrder"
+                      type="number"
+                      min="1"
+                      value={newClass.displayOrder}
+                      onChange={(e) => setNewClass((prev) => ({ ...prev, displayOrder: e.target.value }))}
+                      placeholder={`${classes.length + 1}`}
+                    />
+                  </div>
+                  <Button type="submit" className="w-full">
+                    Save Class
+                  </Button>
+                </form>
+              </DialogContent>
+            </Dialog>
+
+            <Dialog open={isAddStudentDialogOpen} onOpenChange={setIsAddStudentDialogOpen}>
+              <DialogTrigger asChild>
+                <Button>
+                  Invite Student
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Add Student Email</DialogTitle>
+                  <DialogDescription>
+                    Authorized students can sign in with Google using this email address.
+                  </DialogDescription>
+                </DialogHeader>
+                <form className="space-y-4" onSubmit={handleAddStudent}>
+                  <div>
+                    <Label htmlFor="studentEmail">Student Email</Label>
+                    <Input
+                      id="studentEmail"
+                      type="email"
+                      placeholder="student@example.com"
+                      value={newStudent.email}
+                      onChange={(e) => setNewStudent((prev) => ({ ...prev, email: e.target.value }))}
+                      required
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="studentClass">Assign to Class (optional)</Label>
+                    <Select
+                      value={newStudent.classId}
+                      onValueChange={(value) => setNewStudent((prev) => ({ ...prev, classId: value }))}
+                    >
+                      <SelectTrigger id="studentClass">
+                        <SelectValue placeholder="Select a class" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="">No class yet</SelectItem>
+                        {classes.map((cls) => (
+                          <SelectItem key={cls.id} value={cls.id}>
+                            {cls.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <Button type="submit" className="w-full">
+                    Authorize Student
+                  </Button>
+                </form>
+              </DialogContent>
+            </Dialog>
+          </div>
+        </div>
+
         {selectedStudents.size > 0 && (
           <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg flex items-center justify-between">
             <div className="flex items-center gap-2">
