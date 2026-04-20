@@ -1,6 +1,5 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  output: 'standalone',
   poweredByHeader: false,
   experimental: {
     serverActions: {
@@ -28,7 +27,7 @@ const nextConfig = {
               "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
               "font-src 'self' https://fonts.gstatic.com",
               "img-src 'self' data: https://lh3.googleusercontent.com https://www.google-analytics.com",
-              "connect-src 'self' https://www.google-analytics.com https://analytics.google.com https://region1.google-analytics.com",
+              "connect-src 'self' https://raj-coaching-backend-574867360080.asia-south1.run.app https://www.google-analytics.com https://analytics.google.com https://region1.google-analytics.com",
               "frame-src 'none'",
               "object-src 'none'",
               "base-uri 'self'",
