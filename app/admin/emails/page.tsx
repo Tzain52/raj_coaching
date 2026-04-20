@@ -1,4 +1,5 @@
 "use client";
+import { apiFetch } from "@/lib/api";
 
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
@@ -41,8 +42,8 @@ export default function EmailsPage() {
   const fetchData = async () => {
     try {
       const [emailsRes, classesRes] = await Promise.all([
-        fetch("/api/admin/emails"),
-        fetch("/api/admin/classes"),
+        apiFetch("/admin/emails"),
+        apiFetch("/admin/classes"),
       ]);
       
       if (emailsRes.ok) setEmails(await emailsRes.json());
@@ -59,9 +60,9 @@ export default function EmailsPage() {
     if (formSubmitting) return;
     try {
       setFormSubmitting(true);
-      const res = await fetch("/api/admin/emails", {
+      const res = await apiFetch("/admin/emails", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { },
         body: JSON.stringify({
           email: formData.email,
           role: formData.role,
@@ -90,7 +91,7 @@ export default function EmailsPage() {
 
     try {
       setDeleteLoadingId(id);
-      const res = await fetch(`/api/admin/emails/${id}`, { method: "DELETE" });
+      const res = await apiFetch(`/admin/emails/${id}`, { method: "DELETE" });
       if (res.ok) {
         toast({ title: "Success", description: "Email authorization removed" });
         fetchData();

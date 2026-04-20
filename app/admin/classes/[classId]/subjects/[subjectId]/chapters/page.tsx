@@ -1,4 +1,5 @@
 "use client";
+import { apiFetch } from "@/lib/api";
 
 import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
@@ -49,15 +50,15 @@ export default function ChaptersPage() {
   const fetchData = async () => {
     try {
       const [subjectsRes, chaptersRes] = await Promise.all([
-        fetch(`/api/admin/subjects?classId=${classId}`),
-        fetch(`/api/admin/chapters?subjectId=${subjectId}`),
+        apiFetch(`/admin/subjects?classId=${classId}`),
+        apiFetch(`/admin/chapters?subjectId=${subjectId}`),
       ]);
 
       if (subjectsRes.ok) {
         const subjects = await subjectsRes.json();
         const currentSubject = subjects.find((s: any) => s.id === subjectId);
         if (currentSubject) {
-          const classRes = await fetch(`/api/admin/classes`);
+          const classRes = await apiFetch(`/admin/classes`);
           if (classRes.ok) {
             const classes = await classRes.json();
             const classInfo = classes.find((c: any) => c.id === classId);
@@ -82,12 +83,12 @@ export default function ChaptersPage() {
     if (formSubmitting) return;
     try {
       setFormSubmitting(true);
-      const url = editingChapter ? `/api/admin/chapters/${editingChapter.id}` : "/api/admin/chapters";
+      const url = editingChapter ? `/admin/chapters/${editingChapter.id}` : "/admin/chapters";
       const method = editingChapter ? "PATCH" : "POST";
 
-      const res = await fetch(url, {
+      const res = await apiFetch(url, {
         method,
-        headers: { "Content-Type": "application/json" },
+        headers: { },
         body: JSON.stringify({
           name: formData.name,
           subjectId: subjectId,
@@ -116,7 +117,7 @@ export default function ChaptersPage() {
 
     try {
       setDeleteLoadingId(id);
-      const res = await fetch(`/api/admin/chapters/${id}`, { method: "DELETE" });
+      const res = await apiFetch(`/admin/chapters/${id}`, { method: "DELETE" });
       if (res.ok) {
         toast({ title: "Success", description: "Chapter deleted successfully" });
         fetchData();

@@ -1,13 +1,14 @@
 "use client";
+import { apiFetch } from "@/lib/api";
 
 import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowLeft, FileText, ExternalLink } from "lucide-react";
+import { ArrowLeft, FileText, ExternalLink, Rocket, ChevronDown, ChevronUp } from "lucide-react";
 import Link from "next/link";
 import { useToast } from "@/components/ui/use-toast";
 import { LoadingScreen } from "@/components/ui/loading-screen";
+import BottomNav from "@/components/student/bottom-nav";
+import { trackChapterOpen, trackResourceOpen } from "@/lib/ga";
 
 interface Resource {
   id: string;
@@ -28,175 +29,169 @@ interface Subject {
   name: string;
   chapters: Chapter[];
   resources: Resource[];
-  class: {
-    name: string;
-  };
+  class: { name: string };
 }
+
+const typeBadge: Record<string, string> = {
+  NOTES: "bg-cyan-500/10 text-cyan-400 border border-cyan-500/30",
+  HOMEWORK: "bg-yellow-500/10 text-yellow-400 border border-yellow-500/30",
+  TEST_PAPER: "bg-red-500/10 text-red-400 border border-red-500/30",
+  REFERENCE_MATERIAL: "bg-purple-500/10 text-purple-400 border border-purple-500/30",
+  OTHER: "bg-slate-500/10 text-slate-400 border border-slate-500/30",
+};
 
 export default function SubjectPage() {
   const params = useParams();
   const subjectId = params.subjectId as string;
   const [subject, setSubject] = useState<Subject | null>(null);
   const [loading, setLoading] = useState(true);
+  const [openChapters, setOpenChapters] = useState<Set<string>>(new Set());
   const { toast } = useToast();
 
   useEffect(() => {
-    fetchSubject();
+    apiFetch(`/student/subjects/${subjectId}`)
+      .then((r) => r.json())
+      .then((data) => {
+        setSubject(data);
+        // open first chapter by default
+        if (data?.chapters?.[0]) setOpenChapters(new Set([data.chapters[0].id]));
+      })
+      .catch(() => toast({ title: "Error", description: "Failed to load subject", variant: "destructive" }))
+      .finally(() => setLoading(false));
   }, [subjectId]);
 
-  const fetchSubject = async () => {
-    try {
-      const res = await fetch(`/api/student/subjects/${subjectId}`);
-      if (res.ok) {
-        const data = await res.json();
-        setSubject(data);
-      } else {
-        toast({ title: "Error", description: "Failed to fetch subject", variant: "destructive" });
-      }
-    } catch (error) {
-      toast({ title: "Error", description: "Failed to fetch subject", variant: "destructive" });
-    } finally {
-      setLoading(false);
+  const toggle = (chapter: Chapter) => {
+    const isOpening = !openChapters.has(chapter.id);
+    setOpenChapters((prev) => {
+      const next = new Set(prev);
+      next.has(chapter.id) ? next.delete(chapter.id) : next.add(chapter.id);
+      return next;
+    });
+    if (isOpening && subject) {
+      trackChapterOpen(chapter.name, subject.name, subject.class.name);
     }
   };
 
-  if (loading) {
-    return (
-      <LoadingScreen
-        label="Loading subject resources"
-        description="Pulling chapters and study materials..."
-      />
-    );
-  }
+  if (loading) return <LoadingScreen label="Loading resources" description="Pulling your study materials..." />;
 
   if (!subject) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <Card className="max-w-md">
-          <CardHeader>
-            <CardTitle>Subject Not Found</CardTitle>
-            <CardDescription>The requested subject could not be found.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Link href="/student/subjects">
-              <Button className="w-full">Back to Subjects</Button>
-            </Link>
-          </CardContent>
-        </Card>
+      <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4">
+        <div className="text-center space-y-4">
+          <p className="text-slate-400">Subject not found.</p>
+          <Link href="/student" className="text-cyan-400 underline text-sm">Go home</Link>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
-      <header className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex items-center gap-4">
-            <Link href="/student/subjects">
-              <Button variant="ghost" size="sm">
-                <ArrowLeft className="h-4 w-4 mr-2" />
-                Back to Subjects
-              </Button>
-            </Link>
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">{subject.name}</h1>
-              <p className="text-sm text-gray-600">Class {subject.class.name}</p>
-            </div>
+    <div
+      className="min-h-screen bg-slate-950 pb-24"
+      style={{ backgroundImage: "radial-gradient(rgba(0,212,255,0.05) 1px, transparent 1px)", backgroundSize: "24px 24px" }}
+    >
+      <header className="sticky top-0 z-40 bg-slate-950/90 backdrop-blur-sm border-b border-slate-800">
+        <div className="max-w-lg mx-auto px-4 py-3 flex items-center gap-3">
+          <Link href="/student">
+            <button className="p-2 rounded-xl bg-slate-800 border border-slate-700 text-slate-300 hover:text-white active:scale-95 transition-all">
+              <ArrowLeft className="h-4 w-4" />
+            </button>
+          </Link>
+          <div className="min-w-0">
+            <h1 className="font-black text-white text-base truncate">{subject.name}</h1>
+            <p className="text-xs text-slate-500">Class {subject.class.name}</p>
           </div>
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="max-w-lg mx-auto px-4 py-6 space-y-4">
+        {/* Subject-level resources */}
         {subject.resources && subject.resources.length > 0 && (
-          <div className="mb-8">
-            <h2 className="text-xl font-bold text-gray-900 mb-4">📚 Subject Resources (Multi-Chapter)</h2>
-            <Card className="bg-gradient-to-br from-purple-50 to-indigo-50 border-purple-200">
-              <CardHeader>
-                <CardTitle className="text-purple-900">Test Papers, Solutions & Reference Materials</CardTitle>
-                <CardDescription>Resources covering multiple chapters</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  {subject.resources.map((resource) => (
-                    <div key={resource.id} className="flex items-start gap-3 p-4 bg-white rounded-lg border border-purple-200">
-                      <FileText className="h-5 w-5 text-purple-600 mt-0.5" />
-                      <div className="flex-1">
-                        <div className="flex items-start justify-between gap-2">
-                          <div>
-                            <h4 className="font-semibold text-gray-900">{resource.title}</h4>
-                            <span className="inline-block px-2 py-1 text-xs rounded-full bg-purple-100 text-purple-800 mt-1">
-                              {resource.type}
-                            </span>
-                            {resource.description && (
-                              <p className="text-sm text-gray-600 mt-2">{resource.description}</p>
-                            )}
-                          </div>
-                          <a href={resource.link} target="_blank" rel="noopener noreferrer">
-                            <Button size="sm" className="bg-purple-600 hover:bg-purple-700">
-                              <ExternalLink className="h-4 w-4 mr-2" />
-                              Open
-                            </Button>
-                          </a>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
+          <div>
+            <p className="text-xs font-bold uppercase tracking-widest text-purple-400 mb-3">📋 Subject Resources</p>
+            <div className="space-y-2">
+              {subject.resources.map((r) => (
+                <ResourceRow key={r.id} resource={r} />
+              ))}
+            </div>
           </div>
         )}
 
-        <h2 className="text-xl font-bold text-gray-900 mb-4">📖 Chapters & Resources</h2>
-        {subject.chapters.length === 0 ? (
-          <Card>
-            <CardContent className="py-12 text-center">
-              <p className="text-gray-500">No chapters available yet.</p>
-            </CardContent>
-          </Card>
-        ) : (
-          <div className="space-y-6">
-            {subject.chapters.map((chapter) => (
-              <Card key={chapter.id}>
-                <CardHeader>
-                  <CardTitle>{chapter.name}</CardTitle>
-                  <CardDescription>{chapter.resources.length} resources available</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  {chapter.resources.length === 0 ? (
-                    <p className="text-sm text-gray-500">No resources uploaded yet</p>
-                  ) : (
-                    <div className="space-y-3">
-                      {chapter.resources.map((resource) => (
-                        <div key={resource.id} className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg">
-                          <FileText className="h-5 w-5 text-blue-600 mt-0.5" />
-                          <div className="flex-1">
-                            <div className="flex items-start justify-between gap-2">
-                              <div>
-                                <h4 className="font-medium text-gray-900">{resource.title}</h4>
-                                <span className="text-xs text-gray-500 uppercase">{resource.type}</span>
-                                {resource.description && (
-                                  <p className="text-sm text-gray-600 mt-1">{resource.description}</p>
-                                )}
-                              </div>
-                              <a href={resource.link} target="_blank" rel="noopener noreferrer">
-                                <Button size="sm" variant="outline">
-                                  <ExternalLink className="h-4 w-4 mr-2" />
-                                  Open
-                                </Button>
-                              </a>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
+        {/* Chapters */}
+        <div>
+          <p className="text-xs font-bold uppercase tracking-widest text-cyan-400 mb-3">📖 Chapters</p>
+          {subject.chapters.length === 0 ? (
+            <div className="rounded-2xl bg-slate-900 border border-slate-700 p-8 text-center">
+              <p className="text-slate-500 text-sm">No chapters yet. Check back soon!</p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {subject.chapters.map((chapter, idx) => (
+                <div key={chapter.id} className="rounded-2xl bg-slate-900 border border-slate-700 overflow-hidden">
+                  <button
+                    onClick={() => toggle(chapter)}
+                    className="w-full flex items-center justify-between p-4 text-left active:bg-slate-800 transition-colors"
+                  >
+                    <div className="flex items-center gap-3">
+                      <span className="w-7 h-7 rounded-lg bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-cyan-400 text-xs font-black">{idx + 1}</span>
+                      <div>
+                        <p className="font-bold text-white text-sm">{chapter.name}</p>
+                        <p className="text-xs text-slate-500">{chapter.resources.length} files</p>
+                      </div>
+                    </div>
+                    {openChapters.has(chapter.id) ? (
+                      <ChevronUp className="h-4 w-4 text-slate-500 shrink-0" />
+                    ) : (
+                      <ChevronDown className="h-4 w-4 text-slate-500 shrink-0" />
+                    )}
+                  </button>
+                  {openChapters.has(chapter.id) && (
+                    <div className="border-t border-slate-700 px-4 pb-4 pt-3 space-y-2">
+                      {chapter.resources.length === 0 ? (
+                        <p className="text-slate-500 text-sm text-center py-3">No files uploaded yet</p>
+                      ) : (
+                        chapter.resources.map((r) => (
+                        <ResourceRow key={r.id} resource={r} chapterName={chapter.name} subjectName={subject.name} />
+                      ))
+                      )}
                     </div>
                   )}
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </main>
+
+      <BottomNav />
+    </div>
+  );
+}
+
+function ResourceRow({ resource, chapterName = "", subjectName = "" }: { resource: Resource; chapterName?: string; subjectName?: string }) {
+  return (
+    <div className="flex items-center justify-between gap-3 p-3 rounded-xl bg-slate-800/50 border border-slate-700/50">
+      <div className="flex items-center gap-2 min-w-0">
+        <FileText className="h-4 w-4 text-slate-400 shrink-0" />
+        <div className="min-w-0">
+          <p className="text-sm font-semibold text-white truncate">{resource.title}</p>
+          <span className={`text-[10px] px-1.5 py-0.5 rounded-md font-bold uppercase ${typeBadge[resource.type] ?? typeBadge.OTHER}`}>
+            {resource.type.replace("_", " ")}
+          </span>
+        </div>
+      </div>
+      <a
+        href={resource.link}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="shrink-0"
+        onClick={() => trackResourceOpen(resource.title, resource.type, chapterName, subjectName)}
+      >
+        <button className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 text-xs font-bold hover:bg-cyan-500/20 active:scale-95 transition-all">
+          <Rocket className="h-3 w-3" />
+          Open
+        </button>
+      </a>
     </div>
   );
 }

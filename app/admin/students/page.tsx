@@ -1,4 +1,5 @@
 "use client";
+import { apiFetch } from "@/lib/api";
 
 import { useState, useEffect, useMemo } from "react";
 import { Button } from "@/components/ui/button";
@@ -8,7 +9,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { ArrowLeft, UserCog, Users, Filter, Loader2, Trash2 } from "lucide-react";
+import { ArrowLeft, UserCog, Users, Filter, Loader2, Trash2, Pencil } from "lucide-react";
 import Link from "next/link";
 import { useToast } from "@/components/ui/use-toast";
 import { LoadingScreen } from "@/components/ui/loading-screen";
@@ -17,6 +18,7 @@ interface User {
   id: string;
   email: string;
   name: string | null;
+  phone: string | null;
   role: string;
   classId: string | null;
   class: { id: string; name: string } | null;
@@ -58,6 +60,15 @@ type InstallmentChoice = "paid" | "unpaid";
 interface NewStudentForm {
   name: string;
   email: string;
+  phone: string;
+  classId: string;
+  installment1Paid: InstallmentChoice;
+  installment2Paid: InstallmentChoice;
+}
+
+interface EditStudentForm {
+  name: string;
+  phone: string;
   classId: string;
   installment1Paid: InstallmentChoice;
   installment2Paid: InstallmentChoice;
@@ -66,6 +77,7 @@ interface NewStudentForm {
 const NEW_STUDENT_DEFAULT: NewStudentForm = {
   name: "",
   email: "",
+  phone: "",
   classId: "none",
   installment1Paid: "unpaid",
   installment2Paid: "unpaid",
@@ -100,6 +112,16 @@ export default function StudentsPage() {
   const [addStudentLoading, setAddStudentLoading] = useState(false);
   const [createClassLoading, setCreateClassLoading] = useState(false);
   const [deleteLoadingId, setDeleteLoadingId] = useState<string | null>(null);
+  const [editingStudent, setEditingStudent] = useState<User | null>(null);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [editForm, setEditForm] = useState<EditStudentForm>({
+    name: "",
+    phone: "",
+    classId: "none",
+    installment1Paid: "unpaid",
+    installment2Paid: "unpaid",
+  });
+  const [editLoading, setEditLoading] = useState(false);
 
   useEffect(() => {
     fetchData();
@@ -125,11 +147,11 @@ export default function StudentsPage() {
         query.set("installment2", filters.installment2);
       }
 
-      const studentsUrl = `/api/admin/students${query.toString() ? `?${query.toString()}` : ""}`;
+      const studentsUrl = `/admin/students${query.toString() ? `?${query.toString()}` : ""}`;
 
       const [studentsRes, classesRes] = await Promise.all([
-        fetch(studentsUrl),
-        fetch("/api/admin/classes"),
+        apiFetch(studentsUrl),
+        apiFetch("/admin/classes"),
       ]);
       
       if (studentsRes.ok) {
@@ -154,7 +176,7 @@ export default function StudentsPage() {
   const fetchMetrics = async () => {
     try {
       setMetricsLoading(true);
-      const res = await fetch("/api/admin/students/metrics");
+      const res = await apiFetch("/admin/students/metrics");
       if (!res.ok) {
         throw new Error("Failed to load metrics");
       }
@@ -171,9 +193,9 @@ export default function StudentsPage() {
     if (assigningClassId) return;
     setAssigningClassId(studentId);
     try {
-      const res = await fetch(`/api/admin/students/${studentId}/assign-class`, {
+      const res = await apiFetch(`/admin/students/${studentId}/assign-class`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
+        headers: { },
         body: JSON.stringify({ classId: classId || null }),
       });
 
@@ -199,9 +221,9 @@ export default function StudentsPage() {
 
     try {
       setBulkAssignLoading(true);
-      const res = await fetch("/api/admin/students/bulk-assign", {
+      const res = await apiFetch("/admin/students/bulk-assign", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { },
         body: JSON.stringify({
           studentIds: Array.from(selectedStudents),
           classId: bulkClassId === "none" ? null : bulkClassId || null,
@@ -242,22 +264,76 @@ export default function StudentsPage() {
     }
   };
 
+  const openEditDialog = (student: User) => {
+    setEditingStudent(student);
+    setEditForm({
+      name: student.name || "",
+      phone: student.phone || "",
+      classId: student.classId || "none",
+      installment1Paid: student.installment1Paid ? "paid" : "unpaid",
+      installment2Paid: student.installment2Paid ? "paid" : "unpaid",
+    });
+    setIsEditDialogOpen(true);
+  };
+
+  const handleEditStudent = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingStudent || editLoading) return;
+    try {
+      setEditLoading(true);
+      const phone = editForm.phone.trim() || null;
+      if (phone && !/^\+91[0-9]{10}$/.test(phone)) {
+        toast({ title: "Invalid phone", description: "Phone must be +91 followed by 10 digits", variant: "destructive" });
+        return;
+      }
+      const res = await apiFetch(`/admin/students/${editingStudent.id}`, {
+        method: "PATCH",
+        headers: { },
+        body: JSON.stringify({
+          name: editForm.name.trim(),
+          phone,
+          classId: editForm.classId === "none" ? null : editForm.classId,
+          installment1Paid: editForm.installment1Paid === "paid",
+          installment2Paid: editForm.installment2Paid === "paid",
+        }),
+      });
+      if (!res.ok) {
+        const error = await res.json().catch(() => null);
+        throw new Error(error?.error || "Failed to update student");
+      }
+      toast({ title: "Student updated", description: "Changes saved successfully." });
+      setIsEditDialogOpen(false);
+      setEditingStudent(null);
+      fetchData();
+    } catch (error) {
+      toast({ title: "Error", description: error instanceof Error ? error.message : "Failed to update student", variant: "destructive" });
+    } finally {
+      setEditLoading(false);
+    }
+  };
+
   const handleAddStudent = async (e: React.FormEvent) => {
     e.preventDefault();
     if (addStudentLoading) return;
     try {
       setAddStudentLoading(true);
+      const phone = newStudent.phone.trim() || null;
+      if (phone && !/^\+91[0-9]{10}$/.test(phone)) {
+        toast({ title: "Invalid phone", description: "Phone must be +91 followed by 10 digits", variant: "destructive" });
+        return;
+      }
       const payload = {
         name: newStudent.name.trim(),
         email: newStudent.email.trim(),
+        phone,
         classId: newStudent.classId === "none" ? null : newStudent.classId,
         installment1Paid: newStudent.installment1Paid === "paid",
         installment2Paid: newStudent.installment2Paid === "paid",
       };
 
-      const res = await fetch("/api/admin/students", {
+      const res = await apiFetch("/admin/students", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { },
         body: JSON.stringify(payload),
       });
 
@@ -296,9 +372,9 @@ export default function StudentsPage() {
           : classes.length + 1,
       };
 
-      const res = await fetch("/api/admin/classes", {
+      const res = await apiFetch("/admin/classes", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { },
         body: JSON.stringify(payload),
       });
 
@@ -340,7 +416,7 @@ export default function StudentsPage() {
 
     try {
       setDeleteLoadingId(studentId);
-      const res = await fetch(`/api/admin/students/${studentId}`, {
+      const res = await apiFetch(`/admin/students/${studentId}`, {
         method: "DELETE",
       });
 
@@ -546,6 +622,81 @@ export default function StudentsPage() {
             <h2 className="text-xl font-semibold text-gray-900">Manage enrollment</h2>
             <p className="text-sm text-gray-600">Invite students and organize classes in one place.</p>
           </div>
+          {/* Edit Student Dialog */}
+          <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Edit Student</DialogTitle>
+                <DialogDescription>Update {editingStudent?.name || editingStudent?.email}&apos;s details.</DialogDescription>
+              </DialogHeader>
+              <form className="space-y-4" onSubmit={handleEditStudent}>
+                <div>
+                  <Label>Full Name</Label>
+                  <Input
+                    value={editForm.name}
+                    onChange={(e) => setEditForm((p) => ({ ...p, name: e.target.value }))}
+                    placeholder="Full name"
+                    required
+                  />
+                </div>
+                <div>
+                  <Label>Phone {editingStudent?.phone ? "(Permanent — cannot be changed)" : "(Optional)"}</Label>
+                  <Input
+                    type="tel"
+                    value={editForm.phone}
+                    onChange={(e) => !editingStudent?.phone && setEditForm((p) => ({ ...p, phone: e.target.value }))}
+                    placeholder="+911234567890"
+                    readOnly={!!editingStudent?.phone}
+                    className={editingStudent?.phone ? "bg-gray-100 cursor-not-allowed text-gray-500" : ""}
+                  />
+                  <p className="text-xs text-gray-400 mt-1">
+                    {editingStudent?.phone
+                      ? "Phone number is locked once set"
+                      : "Format: +91 followed by 10 digits"}
+                  </p>
+                </div>
+                <div>
+                  <Label>Assign to Class</Label>
+                  <Select value={editForm.classId} onValueChange={(v) => setEditForm((p) => ({ ...p, classId: v }))}>
+                    <SelectTrigger><SelectValue placeholder="Select a class" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">No class yet</SelectItem>
+                      {classes.map((cls) => (
+                        <SelectItem key={cls.id} value={cls.id}>{cls.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label>Installment 1</Label>
+                    <Select value={editForm.installment1Paid} onValueChange={(v: InstallmentChoice) => setEditForm((p) => ({ ...p, installment1Paid: v }))}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="unpaid">Unpaid</SelectItem>
+                        <SelectItem value="paid">Paid</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label>Installment 2</Label>
+                    <Select value={editForm.installment2Paid} onValueChange={(v: InstallmentChoice) => setEditForm((p) => ({ ...p, installment2Paid: v }))}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="unpaid">Unpaid</SelectItem>
+                        <SelectItem value="paid">Paid</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <Button type="submit" className="w-full" disabled={editLoading}>
+                  {editLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                  Save Changes
+                </Button>
+              </form>
+            </DialogContent>
+          </Dialog>
+
           <div className="flex flex-wrap gap-2">
             <Dialog open={isClassDialogOpen} onOpenChange={setIsClassDialogOpen}>
               <DialogTrigger asChild>
@@ -616,6 +767,17 @@ export default function StudentsPage() {
                       onChange={(e) => setNewStudent((prev) => ({ ...prev, email: e.target.value }))}
                       required
                     />
+                  </div>
+                  <div>
+                    <Label htmlFor="studentPhone">Phone (Optional)</Label>
+                    <Input
+                      id="studentPhone"
+                      type="tel"
+                      placeholder="+911234567890"
+                      value={newStudent.phone}
+                      onChange={(e) => setNewStudent((prev) => ({ ...prev, phone: e.target.value }))}
+                    />
+                    <p className="text-xs text-gray-400 mt-1">Format: +91 followed by 10 digits</p>
                   </div>
                   <div>
                     <Label htmlFor="studentClass">Assign to Class</Label>
@@ -755,6 +917,7 @@ export default function StudentsPage() {
                       <div>
                         <p className="text-base font-semibold text-gray-900">{student.name || "Not set"}</p>
                         <p className="text-xs text-gray-500 break-all">{student.email}</p>
+                        {student.phone && <p className="text-xs text-gray-400">{student.phone}</p>}
                       </div>
                       <span
                         className={`px-2 py-1 text-xs rounded-full ${
@@ -792,20 +955,31 @@ export default function StudentsPage() {
                     <div className="flex items-center justify-between text-xs text-gray-500">
                       <span>Joined {new Date(student.createdAt).toLocaleDateString()}</span>
                       {student.role === "STUDENT" && (
-                        <Button
-                          variant="destructive"
-                          size="sm"
-                          onClick={() => handleDeleteStudent(student.id)}
-                          disabled={deleteLoadingId === student.id}
-                          className="h-8 px-3 text-xs"
-                        >
-                          {deleteLoadingId === student.id ? (
-                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                          ) : (
-                            <Trash2 className="h-3.5 w-3.5 mr-1" />
-                          )}
-                          Delete
-                        </Button>
+                        <div className="flex gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => openEditDialog(student)}
+                            className="h-8 px-3 text-xs"
+                          >
+                            <Pencil className="h-3.5 w-3.5 mr-1" />
+                            Edit
+                          </Button>
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            onClick={() => handleDeleteStudent(student.id)}
+                            disabled={deleteLoadingId === student.id}
+                            className="h-8 px-3 text-xs"
+                          >
+                            {deleteLoadingId === student.id ? (
+                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            ) : (
+                              <Trash2 className="h-3.5 w-3.5 mr-1" />
+                            )}
+                            Delete
+                          </Button>
+                        </div>
                       )}
                     </div>
                   </CardContent>
@@ -833,7 +1007,7 @@ export default function StudentsPage() {
                             Name
                           </th>
                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Email
+                            Email / Phone
                           </th>
                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                             Role
@@ -863,10 +1037,15 @@ export default function StudentsPage() {
                                 />
                               )}
                             </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                              {student.name || "Not set"}
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <p className="text-sm font-medium text-gray-900">{student.name || "Not set"}</p>
                             </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{student.email}</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                              <div>{student.email}</div>
+                              {student.phone && (
+                                <div className="text-xs text-gray-400 mt-0.5">{student.phone}</div>
+                              )}
+                            </td>
                             <td className="px-6 py-4 whitespace-nowrap">
                               <span
                                 className={`px-2 py-1 text-xs rounded-full ${
@@ -909,24 +1088,35 @@ export default function StudentsPage() {
                               )}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                              {new Date(student.createdAt).toLocaleDateString()}
+                              {new Date(student.createdAt).toLocaleDateString("en-IN", { day: "2-digit", month: "2-digit", year: "numeric" })}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-right text-sm">
                               {student.role === "STUDENT" ? (
-                                <Button
-                                  variant="destructive"
-                                  size="sm"
-                                  onClick={() => handleDeleteStudent(student.id)}
-                                  disabled={deleteLoadingId === student.id}
-                                  className="flex items-center gap-2"
-                                >
-                                  {deleteLoadingId === student.id ? (
-                                    <Loader2 className="h-4 w-4 animate-spin" />
-                                  ) : (
-                                    <Trash2 className="h-4 w-4" />
-                                  )}
-                                  Delete
-                                </Button>
+                                <div className="flex items-center justify-end gap-2">
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => openEditDialog(student)}
+                                    className="flex items-center gap-1.5"
+                                  >
+                                    <Pencil className="h-3.5 w-3.5" />
+                                    Edit
+                                  </Button>
+                                  <Button
+                                    variant="destructive"
+                                    size="sm"
+                                    onClick={() => handleDeleteStudent(student.id)}
+                                    disabled={deleteLoadingId === student.id}
+                                    className="flex items-center gap-2"
+                                  >
+                                    {deleteLoadingId === student.id ? (
+                                      <Loader2 className="h-4 w-4 animate-spin" />
+                                    ) : (
+                                      <Trash2 className="h-4 w-4" />
+                                    )}
+                                    Delete
+                                  </Button>
+                                </div>
                               ) : (
                                 <span className="text-gray-400 text-xs">N/A</span>
                               )}

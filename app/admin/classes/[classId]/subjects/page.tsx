@@ -1,4 +1,5 @@
 "use client";
+import { apiFetch } from "@/lib/api";
 
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
@@ -45,8 +46,8 @@ export default function SubjectsPage() {
   const fetchData = async () => {
     try {
       const [classRes, subjectsRes] = await Promise.all([
-        fetch(`/api/admin/classes`),
-        fetch(`/api/admin/subjects?classId=${classId}`),
+        apiFetch(`/admin/classes`),
+        apiFetch(`/admin/subjects?classId=${classId}`),
       ]);
 
       if (classRes.ok) {
@@ -71,12 +72,12 @@ export default function SubjectsPage() {
     if (formSubmitting) return;
     try {
       setFormSubmitting(true);
-      const url = editingSubject ? `/api/admin/subjects/${editingSubject.id}` : "/api/admin/subjects";
+      const url = editingSubject ? `/admin/subjects/${editingSubject.id}` : "/admin/subjects";
       const method = editingSubject ? "PATCH" : "POST";
 
-      const res = await fetch(url, {
+      const res = await apiFetch(url, {
         method,
-        headers: { "Content-Type": "application/json" },
+        headers: { },
         body: JSON.stringify({
           name: formData.name,
           classId: classId,
@@ -105,7 +106,7 @@ export default function SubjectsPage() {
 
     try {
       setDeleteLoadingId(id);
-      const res = await fetch(`/api/admin/subjects/${id}`, { method: "DELETE" });
+      const res = await apiFetch(`/admin/subjects/${id}`, { method: "DELETE" });
       if (res.ok) {
         toast({ title: "Success", description: "Subject deleted successfully" });
         fetchData();

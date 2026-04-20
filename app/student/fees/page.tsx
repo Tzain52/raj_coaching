@@ -4,54 +4,58 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import StudentFeeSection from "@/components/student/fee-section";
 import Link from "next/link";
-import { Button } from "@/components/ui/button";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Rocket, CreditCard } from "lucide-react";
+import BottomNav from "@/components/student/bottom-nav";
 
 export default async function StudentFeesPage() {
   const session = await getServerSession(authOptions);
+  if (!session || session.user.role !== "STUDENT") redirect("/auth/signin");
 
-  if (!session || session.user.role !== "STUDENT") {
-    redirect("/auth/signin");
-  }
-
-  const requests = await (prisma as any).feeRequest.findMany({
-    where: { studentId: session.user.id },
-    orderBy: { requestedAt: "desc" },
-  });
+  const [requests, student] = await Promise.all([
+    (prisma as any).feeRequest.findMany({
+      where: { studentId: session.user.id },
+      orderBy: { requestedAt: "desc" },
+    }),
+    prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { installment1Paid: true, installment2Paid: true },
+    }),
+  ]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
-      <header className="bg-white border-b shadow-sm">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+    <div
+      className="min-h-screen bg-slate-950 pb-24"
+      style={{ backgroundImage: "radial-gradient(rgba(0,212,255,0.05) 1px, transparent 1px)", backgroundSize: "24px 24px" }}
+    >
+      <header className="sticky top-0 z-40 bg-slate-950/90 backdrop-blur-sm border-b border-slate-800">
+        <div className="max-w-lg mx-auto px-4 py-3 flex items-center gap-3">
+          <Link href="/student">
+            <button className="p-2 rounded-xl bg-slate-800 border border-slate-700 text-slate-300 hover:text-white active:scale-95 transition-all">
+              <ArrowLeft className="h-4 w-4" />
+            </button>
+          </Link>
           <div>
-            <p className="text-sm text-gray-500 mb-1">RCCC Portal</p>
-            <h1 className="text-3xl font-bold text-gray-900">Manage Fees</h1>
-            <p className="text-sm text-gray-500">
-              Submit installment payments for approval and track their status.
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <Link href="/student">
-              <Button variant="outline" size="sm">
-                <ArrowLeft className="h-4 w-4 mr-2" />
-                Back to Dashboard
-              </Button>
-            </Link>
+            <h1 className="font-black text-white text-base">Fee Payments</h1>
+            <p className="text-xs text-slate-500">Submit & track your installments</p>
           </div>
         </div>
       </header>
 
-      <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="max-w-lg mx-auto px-4 py-6">
         <StudentFeeSection
-          initialRequests={requests.map((request: any) => ({
-            id: request.id as string,
-            installment: request.installment as "INSTALLMENT1" | "INSTALLMENT2",
-            status: request.status as "PENDING" | "APPROVED" | "REJECTED",
-            requestedAt: new Date(request.requestedAt).toISOString(),
-            resolvedAt: request.resolvedAt ? new Date(request.resolvedAt).toISOString() : null,
+          installment1Paid={student?.installment1Paid ?? false}
+          installment2Paid={student?.installment2Paid ?? false}
+          initialRequests={requests.map((r: any) => ({
+            id: r.id as string,
+            installment: r.installment as "INSTALLMENT1" | "INSTALLMENT2",
+            status: r.status as "PENDING" | "APPROVED" | "REJECTED",
+            requestedAt: new Date(r.requestedAt).toISOString(),
+            resolvedAt: r.resolvedAt ? new Date(r.resolvedAt).toISOString() : null,
           }))}
         />
       </main>
+
+      <BottomNav />
     </div>
   );
 }

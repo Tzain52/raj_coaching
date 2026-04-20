@@ -1,4 +1,5 @@
 "use client";
+import { apiFetch } from "@/lib/api";
 
 import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
@@ -57,15 +58,15 @@ export default function SubjectResourcesPage() {
   const fetchData = async () => {
     try {
       const [subjectsRes, resourcesRes] = await Promise.all([
-        fetch(`/api/admin/subjects?classId=${classId}`),
-        fetch(`/api/admin/resources?subjectId=${subjectId}`),
+        apiFetch(`/admin/subjects?classId=${classId}`),
+        apiFetch(`/admin/resources?subjectId=${subjectId}`),
       ]);
 
       if (subjectsRes.ok) {
         const subjects = await subjectsRes.json();
         const currentSubject = subjects.find((s: any) => s.id === subjectId);
         if (currentSubject) {
-          const classRes = await fetch(`/api/admin/classes`);
+          const classRes = await apiFetch(`/admin/classes`);
           if (classRes.ok) {
             const classes = await classRes.json();
             const classInfo = classes.find((c: any) => c.id === classId);
@@ -90,12 +91,12 @@ export default function SubjectResourcesPage() {
     if (formSubmitting) return;
     try {
       setFormSubmitting(true);
-      const url = editingResource ? `/api/admin/resources/${editingResource.id}` : "/api/admin/resources";
+      const url = editingResource ? `/admin/resources/${editingResource.id}` : "/admin/resources";
       const method = editingResource ? "PATCH" : "POST";
 
-      const res = await fetch(url, {
+      const res = await apiFetch(url, {
         method,
-        headers: { "Content-Type": "application/json" },
+        headers: { },
         body: JSON.stringify({
           ...formData,
           subjectId: subjectId,
@@ -124,7 +125,7 @@ export default function SubjectResourcesPage() {
 
     try {
       setDeleteLoadingId(id);
-      const res = await fetch(`/api/admin/resources/${id}`, { method: "DELETE" });
+      const res = await apiFetch(`/admin/resources/${id}`, { method: "DELETE" });
       if (res.ok) {
         toast({ title: "Success", description: "Resource deleted successfully" });
         fetchData();

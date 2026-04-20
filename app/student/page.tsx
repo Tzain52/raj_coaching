@@ -3,9 +3,9 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { BookOpen, LogOut, FileText, GraduationCap, Mail, MapPin } from "lucide-react";
+import { LogOut, BookOpen, Rocket } from "lucide-react";
 import Link from "next/link";
+import BottomNav from "@/components/student/bottom-nav";
 
 export default async function StudentDashboard() {
   const session = await getServerSession(authOptions);
@@ -16,184 +16,112 @@ export default async function StudentDashboard() {
 
   if (!session.user.classId) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 flex items-center justify-center p-4">
-        <Card className="max-w-md shadow-xl">
-          <CardHeader>
-            <CardTitle>No Class Assigned</CardTitle>
-            <CardDescription>
-              Please contact the administrator to assign you to a class.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form action="/api/auth/signout" method="POST">
-              <Button variant="outline" className="w-full" type="submit">
-                <LogOut className="h-4 w-4 mr-2" />
-                Sign Out
-              </Button>
-            </form>
-          </CardContent>
-        </Card>
+      <div
+        className="min-h-screen flex items-center justify-center bg-slate-950 p-4"
+        style={{ backgroundImage: "radial-gradient(rgba(0,212,255,0.08) 1px, transparent 1px)", backgroundSize: "24px 24px" }}
+      >
+        <div className="rounded-2xl bg-slate-900 border border-cyan-500/30 p-8 text-center max-w-sm w-full space-y-4">
+          <Rocket className="h-12 w-12 text-cyan-400 mx-auto" />
+          <div>
+            <h2 className="text-xl font-black text-white">No Class Assigned</h2>
+            <p className="text-slate-400 text-sm mt-2">Contact your admin to get assigned to a class.</p>
+          </div>
+          <form action="/api/auth/signout" method="POST">
+            <Button variant="outline" className="w-full border-slate-700 text-slate-300" type="submit">
+              <LogOut className="h-4 w-4 mr-2" /> Sign Out
+            </Button>
+          </form>
+        </div>
       </div>
     );
   }
 
-  const [classData] = await Promise.all([
-    prisma.class.findUnique({
-      where: { id: session.user.classId },
-      include: {
-        subjects: {
-          include: {
-            _count: {
-              select: { chapters: true },
-            },
-          },
-          orderBy: { name: "asc" },
-        },
+  const classData = await prisma.class.findUnique({
+    where: { id: session.user.classId },
+    include: {
+      subjects: {
+        include: { _count: { select: { chapters: true } } },
+        orderBy: { name: "asc" },
       },
-    }),
-  ]);
+    },
+  });
+
+  const subjectColors = [
+    { border: "border-cyan-500/40", glow: "shadow-[0_0_20px_rgba(0,212,255,0.1)]", badge: "bg-cyan-500/10 text-cyan-400 border-cyan-500/30" },
+    { border: "border-purple-500/40", glow: "shadow-[0_0_20px_rgba(157,0,255,0.1)]", badge: "bg-purple-500/10 text-purple-400 border-purple-500/30" },
+    { border: "border-yellow-500/40", glow: "shadow-[0_0_20px_rgba(255,215,0,0.1)]", badge: "bg-yellow-500/10 text-yellow-400 border-yellow-500/30" },
+    { border: "border-pink-500/40", glow: "shadow-[0_0_20px_rgba(236,72,153,0.1)]", badge: "bg-pink-500/10 text-pink-400 border-pink-500/30" },
+  ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 flex flex-col">
-      <header className="bg-white shadow-md border-b border-gray-200 sticky top-0 z-20">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-lg">
-                <GraduationCap className="h-7 w-7 text-white" />
-              </div>
-              <div>
-                <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Raj Coaching Center</h1>
-                <p className="text-xs sm:text-sm text-gray-500">Student Portal</p>
-              </div>
-            </div>
-            <nav className="flex flex-wrap items-center gap-3 text-sm font-medium text-gray-600">
-              <a href="#subjects-section" className="hover:text-blue-600 transition">
-                Notes
-              </a>
-              <Link href="/student/fees" className="hover:text-blue-600 transition">
-                Fees
-              </Link>
-              <form action="/api/auth/signout" method="POST" className="w-full sm:w-auto">
-                <Button variant="outline" size="sm" type="submit" className="w-full sm:w-auto">
-                  <LogOut className="h-4 w-4 mr-1.5" />
-                  Sign Out
-                </Button>
-              </form>
-            </nav>
+    <div
+      className="min-h-screen bg-slate-950 pb-24"
+      style={{ backgroundImage: "radial-gradient(rgba(0,212,255,0.05) 1px, transparent 1px)", backgroundSize: "24px 24px" }}
+    >
+      {/* Header */}
+      <header className="sticky top-0 z-40 bg-slate-950/90 backdrop-blur-sm border-b border-slate-800">
+        <div className="max-w-lg mx-auto px-4 py-3 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Rocket className="h-5 w-5 text-cyan-400" />
+            <span className="font-black text-white text-sm tracking-wide">RCCC</span>
           </div>
+          <form action="/api/auth/signout" method="POST">
+            <Button variant="ghost" size="sm" type="submit" className="text-slate-400 hover:text-white h-8 px-3 text-xs">
+              <LogOut className="h-3.5 w-3.5 mr-1.5" /> Sign Out
+            </Button>
+          </form>
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-8">
-        <section className="rounded-2xl bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 text-white px-6 py-8 sm:py-10 shadow-xl">
-          <p className="text-xs sm:text-sm uppercase tracking-widest text-blue-100 mb-2">RCCC Portal</p>
-          <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold mb-3">
-            Welcome, {session.user.name?.split(" ")[0] || "Student"}!
-          </h2>
-          <p className="text-base sm:text-lg text-blue-100 leading-relaxed">
-            You're currently enrolled in <span className="font-semibold">Class {classData?.name}</span>. Access all your learning resources and stay on top of your progress from this dashboard.
+      <main className="max-w-lg mx-auto px-4 py-6 space-y-6">
+        {/* Hero */}
+        <div className="rounded-2xl bg-gradient-to-br from-slate-900 to-slate-800 border border-slate-700 p-6 space-y-2">
+          <p className="text-xs font-bold uppercase tracking-widest text-cyan-400">Mission Control</p>
+          <h1 className="text-2xl font-black text-white leading-tight">
+            Hey, {session.user.name?.split(" ")[0] || "Explorer"}! 👋
+          </h1>
+          <p className="text-slate-400 text-sm">
+            Class <span className="text-cyan-400 font-bold">{classData?.name}</span> · Your learning mission awaits 🚀
           </p>
-        </section>
+        </div>
 
-        <section id="subjects-section" className="flex flex-col gap-2 sm:flex-row sm:justify-between sm:items-center">
-          <h3 className="text-xl sm:text-2xl font-bold text-gray-900">Your Subjects</h3>
-          <p className="text-sm text-gray-500 hidden sm:block">Tap a subject to see chapters & resources</p>
-        </section>
-
-        {!classData || classData.subjects.length === 0 ? (
-          <Card className="shadow-lg">
-            <CardContent className="py-16 text-center">
-              <BookOpen className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-              <p className="text-gray-500 text-lg mb-2">No subjects available yet</p>
-              <p className="text-gray-400 text-sm">Your teacher will add subjects soon</p>
-            </CardContent>
-          </Card>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-            {classData.subjects.map((subject: any) => (
-              <Link key={subject.id} href={`/student/subjects/${subject.id}`}>
-                <Card className="hover:shadow-xl transition-all duration-300 cursor-pointer h-full border border-transparent hover:border-blue-200 group">
-                  <CardHeader className="pb-3 sm:pb-4">
-                    <div className="flex items-start justify-between">
+        {/* Subjects */}
+        <div>
+          <h2 className="text-xs font-bold uppercase tracking-widest text-slate-500 mb-3">Your Subjects</h2>
+          {!classData || classData.subjects.length === 0 ? (
+            <div className="rounded-2xl bg-slate-900 border border-slate-700 p-8 text-center">
+              <BookOpen className="h-10 w-10 text-slate-600 mx-auto mb-3" />
+              <p className="text-slate-500 text-sm">No subjects yet. Check back soon!</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {classData.subjects.map((subject: any, idx: number) => {
+                const color = subjectColors[idx % subjectColors.length];
+                return (
+                  <Link key={subject.id} href={`/student/subjects/${subject.id}`}>
+                    <div className={`rounded-2xl bg-slate-900 border ${color.border} ${color.glow} p-4 flex items-center justify-between group active:scale-[0.98] transition-transform`}>
                       <div className="flex items-center gap-3">
-                        <div className="p-3 bg-gradient-to-br from-blue-100 to-indigo-100 rounded-xl group-hover:from-blue-200 group-hover:to-indigo-200 transition-colors">
-                          <BookOpen className="h-6 w-6 text-blue-600" />
+                        <div className={`w-10 h-10 rounded-xl border ${color.badge} flex items-center justify-center`}>
+                          <BookOpen className="h-5 w-5" />
                         </div>
                         <div>
-                          <CardTitle className="text-lg sm:text-xl group-hover:text-blue-600 transition-colors">
-                            {subject.name}
-                          </CardTitle>
-                          <CardDescription className="mt-1">
-                            {subject._count?.chapters || 0} chapters
-                          </CardDescription>
+                          <p className="font-bold text-white text-base">{subject.name}</p>
+                          <p className="text-xs text-slate-500">{subject._count?.chapters || 0} chapters</p>
                         </div>
                       </div>
+                      <span className="text-slate-500 group-hover:text-cyan-400 transition-colors text-lg">→</span>
                     </div>
-                  </CardHeader>
-                  <CardContent>
-                    <Button variant="ghost" className="w-full text-sm sm:text-base group-hover:bg-blue-50 group-hover:text-blue-600 transition-colors">
-                      View Chapters & Resources →
-                    </Button>
-                  </CardContent>
-                </Card>
-              </Link>
-            ))}
-          </div>
-        )}
+                  </Link>
+                );
+              })}
+            </div>
+          )}
+        </div>
 
+        <p className="text-center text-xs text-slate-700 pb-2">© {new Date().getFullYear()} Raj Coaching Center</p>
       </main>
 
-      <footer className="mt-auto bg-gray-900 text-gray-300">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div>
-              <div className="flex items-center gap-2 mb-4">
-                <div className="p-2 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-lg">
-                  <GraduationCap className="h-6 w-6 text-white" />
-                </div>
-                <h3 className="text-lg sm:text-xl font-bold text-white">Raj Coaching Center</h3>
-              </div>
-              <p className="text-sm text-gray-400">
-                Empowering students with quality education and comprehensive study materials for classes 9th to 12th.
-              </p>
-            </div>
-
-            <div>
-              <h4 className="text-lg font-semibold text-white mb-4">Contact Us</h4>
-              <div className="space-y-3">
-                <div className="flex items-center gap-2 text-sm">
-                  <Mail className="h-4 w-4 text-blue-400" />
-                  <span>raj.edu5253@gmail.com</span>
-                </div>
-                <div className="flex items-center gap-2 text-sm">
-                  <MapPin className="h-4 w-4 text-blue-400" />
-                  <span>RCCC, Biaora</span>
-                </div>
-              </div>
-            </div>
-
-            <div>
-              <h4 className="text-lg font-semibold text-white mb-4">Quick Links</h4>
-              <div className="space-y-2">
-                <Link href="/student" className="block text-sm hover:text-blue-400 transition-colors">
-                  Home
-                </Link>
-                <Link href="/student/homework" className="block text-sm hover:text-blue-400 transition-colors">
-                  Homework & Tests
-                </Link>
-                <div className="text-sm text-gray-500">
-                  Office Hours: Mon-Sat, 9:00 AM - 6:00 PM
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="border-t border-gray-800 mt-8 pt-6 text-center text-sm text-gray-500">
-            <p>&copy; {new Date().getFullYear()} Raj Coaching Center. All rights reserved.</p>
-          </div>
-        </div>
-      </footer>
+      <BottomNav />
     </div>
   );
 }

@@ -1,4 +1,5 @@
 "use client";
+import { apiFetch } from "@/lib/api";
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
@@ -38,7 +39,7 @@ export default function ClassesPage() {
 
   const fetchClasses = async () => {
     try {
-      const res = await fetch("/api/admin/classes");
+      const res = await apiFetch("/admin/classes");
       if (res.ok) {
         const data = await res.json();
         setClasses(data);
@@ -55,12 +56,12 @@ export default function ClassesPage() {
     if (formSubmitting) return;
     try {
       setFormSubmitting(true);
-      const url = editingClass ? `/api/admin/classes/${editingClass.id}` : "/api/admin/classes";
+      const url = editingClass ? `/admin/classes/${editingClass.id}` : "/admin/classes";
       const method = editingClass ? "PATCH" : "POST";
       
-      const res = await fetch(url, {
+      const res = await apiFetch(url, {
         method,
-        headers: { "Content-Type": "application/json" },
+        headers: { },
         body: JSON.stringify({
           name: formData.name,
           displayOrder: parseInt(formData.displayOrder),
@@ -89,7 +90,7 @@ export default function ClassesPage() {
 
     try {
       setDeleteLoadingId(id);
-      const res = await fetch(`/api/admin/classes/${id}`, { method: "DELETE" });
+      const res = await apiFetch(`/admin/classes/${id}`, { method: "DELETE" });
       if (res.ok) {
         toast({ title: "Success", description: "Class deleted successfully" });
         fetchClasses();
