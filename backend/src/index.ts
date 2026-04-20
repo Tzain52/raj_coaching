@@ -1,5 +1,6 @@
 import express from "express";
 import cors from "cors";
+import rateLimit from "express-rate-limit";
 
 import adminClasses from "./routes/admin/classes";
 import adminSubjects from "./routes/admin/subjects";
@@ -28,6 +29,14 @@ app.use(cors({
 }));
 
 app.use(express.json());
+
+app.use(rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 200,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many requests, please try again later." },
+}));
 
 app.get("/health", (_req, res) => res.json({ ok: true }));
 
